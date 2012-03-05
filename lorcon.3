@@ -1,0 +1,919 @@
+.\" $Id: $
+.TH LORCON 3 "22 March 2007"
+.SH NAME
+LORCON \- 802.11 Wireless Packet Injection Library
+.SH SYNOPSIS
+.nf
+.ft B
+#include <tx80211.h>
+.ft
+.LP
+.nf
+.ft B
+tx80211_cardlist_t *tx80211_getcardlist()
+void tx80211_freecardlist(struct tx80211_cardlist *in_list)
+.ft
+.LP
+.ft B
+int tx80211_getversion()
+.ft
+.LP
+.ft B
+int tx80211_resolvecard(const char *in_str)
+.ft
+.LP
+.ft B
+int tx80211_resolveinterface(const char *in_str)
+.ft
+.LP
+.ft B
+char * tx80211_getdrivername(int in_inj)
+.ft
+.LP
+.ft B
+int tx80211_init(tx80211_t *in_tx, const char *in_ifname, 
+.ti +8 
+int in_injector)
+.ft
+.LP
+.ft B
+char * tx80211_geterrstr(tx80211_t *in_tx)
+.ft
+.LP
+.ft B
+int tx80211_getcapabilities(tx80211_t *in_tx)
+.ft
+.LP
+.ft B
+int tx80211_open(tx80211_t *in_tx)
+.ft
+.LP
+.ft B
+int tx80211_setmode(tx80211_t *in_tx, int in_mode) /* superceded */
+int tx80211_getmode(tx80211_t *in_tx) 
+int tx80211_setfunctionalmode(tx80211_t *in_tx, int in_fmode)
+.ft
+.LP
+.ft B
+int tx80211_setchannel(tx80211_t *in_tx, int in_chan)
+int tx80211_getchannel(tx80211_t *in_tx)
+.ft
+.LP
+.ft B
+int tx80211_settxrate(tx80211_t *in_tx, tx80211_packet_t *in_packet, 
+.ti +8 
+int rate)
+.ft
+.ft B
+int tx80211_gettxrate(tx80211_packet_t *in_packet)
+.ft
+.LP
+.ft B
+int tx80211_setmodulation(tx80211_t *in_tx, tx80211_packet_t *in_packet, 
+.ti +8 
+int modulation)
+.ft
+.ft B
+int tx80211_getmodulation(tx80211_packet_t *in_packet)
+.ft
+.LP
+.ft B
+int tx80211_initpacket(tx80211_packet_t *in_packet)
+.ft
+.LP
+.ft B
+int tx80211_txpacket(tx80211_t *in_tx, 
+.ti +8 
+tx80211_packet_t *in_packet)
+.ft
+.LP
+.ft B
+int tx80211_initpacket(tx80211_packet_t *in_packet)
+.ft
+.LP
+.ft B
+int tx80211_decodepkt(int in_dlt, struct tx80211_decode *decoded,
+					  static uint8_t *in_packet, int in_length)
+.ft
+.fi
+
+.SH DESCRIPTION
+
+LORCON - Loss Of Radio CONnectivity
+.LP
+The LORCON packet injection library
+provides a high level interface to transmit IEEE 802.11 packets onto
+a wireless medium.  Written for Linux systems, this architecture simplifies
+the development of 802.11 packet injection through an abstraction layer,
+making the development of auditing and assessment tools driver-
+independent.  Using LORCON, developers can write tools that inject packets
+onto the wireless network without writing driver-specific code, simply by
+asking the user to identify the driver name they are currently using for a 
+specified interface.
+
+.PP
+.SH ROUTINES
+
+.PP
+.BR tx80211_getversion()
+is used to return the LORCON internal version, of the format YYYYMMRR 
+(year-month-release#)
+
+.PP
+.BR tx80211_getcardlist()
+is used to obtain a list of supported wireless drivers by the LORCON
+architecture, with a driver description and capability information.  This
+function allocates memory to populate a pointer of type 
+.I tx80211_cardlist_t
+, returning NULL on error.
+
+.PP
+.BR tx80211_freecardlist()
+is used to free the
+.I tx80211_cardlist_t
+pointer populated by
+.B tx80211_getcardlist().
+.I in_list
+is the populated tx80211_cardlist_t pointer.
+
+.PP
+.BR tx80211_resolvecard()
+is used to resolve the driver type being used from a specified string.
+.I in_str
+is a case-insensitive string (usually specified by the user on the command-line) describing
+the driver that they wish to use for packet injection.  Supported driver
+names include:
+.RS
+.TP
+.B INJ_WLANNG
+Indicates the wlan-ng driver available at 
+.I ftp://ftp.linux-wlan.org/pub/linux-wlan-ng.
+The strings "wlanng" or "wlan-ng" may be used to indicate the use of this driver.
+.TP
+.B INJ_HOSTAP
+Indicated the HostAP driver available at 
+.I http://hostap.epitest.fi.
+The strings "host-ap" or "hostap" may be used to indicate the use of this driver.
+.TP
+.B INJ_AIRJACK
+Indicates the Airjack driver, available at
+.I http://www.sourceforge.net/projects/airjack/.
+The string "airjack" may be used to indicate the use of this driver.
+.B NOTE:
+The use of this driver is limited to Linux 2.4 kernel systems, and is not otherwise recommended.  An alternative driver supporting Prism2 cards such as
+.I HostAP
+or
+.I wlan-ng
+is preferred for robustness, reliability and 2.6 kernel support.
+.TP
+.B INJ_PRISM54
+Indicates the Prism54 driver, available at 
+.I http://prism54.org.
+The strings "prismgt" or "prism54" may be used to indicate the use of this driver.
+.TP
+.B INJ_MADWIFING
+Indicates the MADWIFI-ng drivers, available at
+.I http://www.madwifi.org.
+The strings "madwifing" or "madwifi-ng" may be used to indicate the use of this driver.
+.TP
+.B INJ_MADWIFIOLD
+Indicates the MADWIFI-old drivers, available at
+.I http://www.madwifi.org.
+The strings "madwifiold" or "madwifi-old" may be used to indicate the use of this driver.
+.TP
+.B INJ_RTL8180
+Indicates the Realtek RTL8180 driver, available at
+.I http://sourceforge.net/projects/rtl8180-sa2400.
+The strings "rtl8180" or "rt8180" may be used to indicate the use of this driver.
+.TP
+.B INJ_RT2500
+Indicates the Ralink RT2500 driver, available at
+.I http://rt2x00.serialmonkey.com.
+The strings "rt2500" or "rtl2500" or "rt25k" or "rtl25k" may be used to indicate the use of this driver.
+.TP
+.B INJ_RT2750
+Indicates the Ralink RT2570 USB driver, available at 
+.I http://rt2x00.serialmonkey.com.
+The strings "rt2750" or "rtl2570" may be used to indicate the use of this driver.
+.TP
+.B INJ_RT73
+Indicates the Ralink RT73 USB driver, available at 
+.I http://rt2x00.serialmonkey.com.
+The strings "rt73" or "rtl2571" may be used to indicate the use of this driver.
+.TP
+.B INJ_RT61
+Indicates the Ralink RT61 PCI/PC-Card driver, available at 
+.I http://rt2x00.serialmonkey.com.
+The strings "rt61" or "rt2561" may be used to indicate the use of this driver.
+.TP
+.B INJ_AIRPCAP
+Indicates the CACE Technologies AirPcap USB adapter for Windows, available at
+.I http://www.cacetech.com/products/airpcap.htm.  This is a commercial adapter for Windows.  The string "airpcap" may be used to indicate the use of this driver.
+.TP
+.B INJ_ZD1211RW
+Indicates the Linux zd1211rw kernel drivers.  The string "zd1211rw" may be used to indicate the use of this driver.
+.TP
+.B INJ_BCM43XX
+Indicates the Linux bcm43xx kernel drivers.  The string "bcm43xx" may be used to indicate the use of this driver.
+.TP
+.B INJ_MAC80211
+Generic driver for Linux Mac80211 wireless layer drivers, which require a cutting-edge kernel.  Multiple device names are aliased to this driver, including "ath5k" and "iwlwifi".  Future Linux support will be concentrated on this driver.
+.TP
+.B INJ_NODRIVER
+This value is returned when the driver name specified with
+.I in_str
+is not recognized.  This can be due to a typo, or due to lack of support for
+the specified driver in the installed version of LORCON for the current operating system.
+.RE
+.LP
+.B tx80211_resolvecard()
+returns an integer value that uniquely identifies the driver based on the input
+string.  Upon error, 
+.B tx80211_resolvecard()
+will return 
+.I INJ_NODRIVER.
+.LP
+.B NOTE:
+It is not recommended for developers to write code that relies on any given driver.  Instead, developers should enumerate what capabilities are needed
+for their program, and examine the capabilities for the user's selected
+card and driver combination to determine if the required capabilities are present.
+
+.PP
+.BR tx80211_resolveinterface()
+returns an integer value that uniquely identifies the injection driver based
+on the autodetection routines available for the provided interface.  Upon error,
+.B tx80211_resolveinterface()
+will return 
+.I INJ_NODRIVER
+.
+.B NOTE:
+It is recommended for developers to call
+.B tx80211_resolveinterface()
+when the user does not provide a driver.
+
+.PP
+.BR tx80211_getdrivername()
+fetches the name of the driver for an internal injection reference number,
+such as that returned by
+.B tx80211_resolveinterface()
+This is provided so that developers can notify the user which driver was
+selected.
+.B NOTE:
+The return value must be free()d by the calling function.
+
+.PP
+.BR tx80211_init()
+is used to populate the 
+.I in_tx
+structure with the driver-specific code needed for packet injection using
+the interface name (e.g. "wlan0") specified in the string
+.I in_ifname
+, and the driver type returned from
+.B tx80211_resolvecard()
+with
+.I in_injector.
+This function also establishes the function pointers contained in the
+.I in_tx
+structure and other components needed for packet injection.
+
+.PP
+.BR tx80211_geterrstr()
+fetches the error string of the last failed operation, contained in the
+.I in_tx
+structure.
+.B tx80211_geterrstr()
+should only be called when an error is returned.  Calling it extraneously may return
+older error data which is not relevant.
+
+.PP
+.BR tx80211_getcapabilities()
+is used to resolve the capability information for the driver in use.  Different
+wireless card and driver combinations present different capability information.  LORCON provides the capability bitmask for each card so the driver can deduce what the current capabilities are of the given card to prevent writing driver-specific code.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.  This function returns a bitmask value indicating the specific
+capabilities for this driver:
+
+.RS
+.TP
+.B
+TX80211_CAP_NONE
+Indicates no capability information.  This capability is used as a placeholder for drivers that are currently being tested where capability information is not known.
+.TP
+.B
+TX80211_CAP_SNIFF
+Indicates the capability to sniff packets in monitor mode.
+.TP
+.B
+TX80211_CAP_TRANSMIT
+Indicates the basic capability to transmit raw 802.11 packets while in monitor mode.
+.TP
+.B
+TX80211_CAP_SEQ
+Indicates the capability to transmit frames retaining the specified 802.11
+sequence number value.  Cards with the
+.B TX80211_CAP_SEQ
+capability will not overwrite the specified sequence number before transmitting
+the packet.
+.TP
+.B
+TX80211_CAP_BSSTIME
+Indicates the capability to transmit frames retaining the specified BSS 
+Timestamp value in 802.11 beacon frames.  Cards with the
+.B TX80211_CAP_BSSTIME
+capability will not overwrite the specified BSS Timestamp value before
+transmitting the packet.
+.TP
+.B
+TX80211_CAP_FRAG
+Indicates the capability to transmit a fragmented 802.11 frame by setting the
+.I morefrag
+bit in the frame control header and a non-null value in the
+.I fragment number
+field.
+.TP
+.B
+TX80211_CAP_CTRL
+Indicates the capability to transmit 802.11 control frames, including but not
+limited to ACK, PS-Poll, RTS and CTS frames.
+.TP
+.B
+TX80211_CAP_DURID
+Indicates the capability to transmit frames retaining the specified duration
+value in the frame control header.  Cards with the
+.B TX80211_CAP_DURID
+capability will not overwrite the specified duration value before transmitting
+the packet.
+.TP
+.B
+TX80211_CAP_SNIFFACK
+Indicates the capability to observe the presence of ACK frames in monitor mode.
+.TP
+.B
+TX80211_CAP_SELFACK
+Indicates the capability to comply with the requirements for positive
+acknowledgement while in monitor mode.
+.B NOTE: 
+While some drivers have the capability to transmit ACK frames, the
+transmission of positive acknowledgement messages is time-sensitive and not
+appropriate for non-realtime applications.  The 
+.B TX80211_CAP_SELFACK
+capability indicates that the card is able to self-transmit ACK messages to
+properly acknowledge the delivery of frames.
+.TP
+.B
+TX80211_CAP_TXNOWAIT
+Indicates the capability to transmit frames without waiting for the mandatory
+DIFS or SIFS intervals.
+.TP
+.B
+TX80211_CAP_DSSSTX
+Indicates the capability to transmit frames using DSSS modulation.  This is
+appropriate for cards that support 802.11b networking.
+.TP
+.B
+TX80211_CAP_OFDMTX
+Indicates the capability to transmit frames using OFDM modulation.  This is
+appropriate for cards that support 802.11g or 802.11a networking.
+.B tx80211_setchannel()
+function.
+.TP
+.B
+TX80211_CAP_MIMOTX
+Indicates the capability to transmit frame using MIMO modulation.  This
+capability is reserved for future use as no MIMO-capable drivers are currently
+supported.
+.TP
+.B
+TX80211_CAP_SETRATE
+Indicates the capability to set the data transmission rate using the
+.B tx80211_settxrate()
+function.
+.TP
+.B
+TX80211_CAP_SETMODULATION
+Indicates the capability to set the data modulation mechanism using the
+.B tx80211_setmodulation()
+function.
+.RE
+.LP
+
+.BR NOTE:
+The
+.B tx80211_getcardlist()
+call will also populate capability information in the
+.I tx80211_cardlist->capabilities[INDEX]
+field, where INDEX is the resolved card returned by
+.B tx80211_resolvecard().
+
+.PP
+.BR tx80211_open()
+is used to open and bind a socket for packet transmission.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.  It is necessary to call
+.B tx80211_open()
+function before transmitting packets.
+.B tx80211_open()
+returns
+.B
+TX80211_ENOERR
+on success and < 0 on failure.
+
+.PP
+.BR tx80211_setmode()
+is used to explicitly set the operating mode of the wireless card.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+
+.I This function has been superceded with the
+.B tx80211_setfunctionalmode()
+.I function.  Only use this function for explicitly setting the card mode,
+.I not to prepare the card for packet injection.
+
+.I in_mode
+is the desired operating mode for the wireless card, as defined below:
+
+.RS
+.TP
+.B
+TX80211_MODE_AUTO
+Allows the driver to decide the best operating mode.
+.TP
+.B
+TX80211_MODE_ADHOC
+Configures the card to operate as an IBSS or ad-hoc network.
+.TP
+.B
+TX80211_MODE_INFRA
+Configures the card as a wireless client in an BSS or ESS network.
+.TP
+.B
+TX80211_MODE_MASTER
+Configures the card as an access point or master device.
+.TP
+.B
+TX80211_MODE_REPEAT
+Configures the card as a wireless repeater or forwarder.
+.TP
+.B
+TX80211_MODE_SECOND
+Configures the card as a backup or secondary access point or master device.
+.TP
+.B
+TX80211_MODE_MONITOR
+Configures the card to forward all frames to userspace regardless of destination
+or BSSID address.
+
+.RE
+Note that these values match the Linux wireless IW_MODE_ values for backward-compatibility.
+
+.RE
+.B tx80211_setmode()
+returns 
+.B
+TX80211_ENOERR
+on success, < 0 on error.
+
+.PP
+.BR tx80211_setfunctionalmode()
+is used to set the functional operating mode of the wireless card.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+.I in_fmode
+is the desired functional operating mode for the wireless card:
+
+.RS
+.TP
+.B
+TX80211_FUNCMODE_RFMON
+Configures the card to forward all frames to userspace regardless of destination
+or BSSID address.
+.TP
+.B
+TX80211_FUNCMODE_INJECT
+Configures the card for injection mode.  While this may imply other modes, the only
+guaranteed functionality is injection.
+.TP
+.B
+TX80211_FUNCMODE_INJMON
+Configures the card for dual functionality, injection and rfmon.  If the device
+supports it, this allows sniffing and injection simultaneously.
+
+.RE
+.B tx80211_setfunctionalmode()
+returns
+.B
+TX80211_ENOERR
+on success, < 0 on error.
+
+.B NOTE:
+For most packet injection uses, the 
+.B TX80211_FUNCMODE_INJMON
+operating mode is the preferred operating mechanism.
+
+.B NOTE 2: It's possible that on some cards one mode can perform multiple tasks (IE
+injection still works while in monitor mode) however this is not recommended as it
+will not operate on all cards.  The caller should always set the desired functional mode.
+
+.PP
+.BR tx80211_getmode()
+is used to identify the current operating mode, returning the operating mode or < 0 on error.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+
+.PP
+.BR tx80211_setchannel()
+is used to set card channel, returning
+.B
+TX80211_ENOERR
+on success and -1 on error.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+.I in_chan is the desired channel number.
+.B tx80211_setchannel()
+returns
+.B
+TX80211_ENOERR
+on success, and < 0 on failure.
+
+.PP
+.BR tx80211_getchannel()
+is used to identify the current channel number, returning the channel number
+or < 0 on error.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+
+.PP
+.BR tx80211_settxrate()
+is used to specify the transmit rate for the frame.  This parameter is per-packet specific (e.g. specified in the
+.I
+in_packet
+structure, allowing you to create and transmit multiple frames with different rates without having to call
+.B
+tx80211_settxrate()
+successively for each transmission.  
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function. The
+.B rate
+specifiers are defined as follows:
+.RS
+.TP
+.B
+TX80211_RATE_DEFAULT
+Transmission at the default driver rate, typically 1 Mbps
+.TP
+.B
+TX80211_RATE_1MB
+Transmission at 1 Mbps
+.TP
+.B
+TX80211_RATE_2MB
+Transmission at 2 Mbps
+.TP
+.B
+TX80211_RATE_5_5MB
+Transmission at 5.5 Mbps
+.TP
+.B
+TX80211_RATE_6MB
+Transmission at 6 Mbps
+.TP
+.B
+TX80211_RATE_9MB
+Transmission at 9 Mbps
+.TP
+.B
+TX80211_RATE_11MB
+Transmission at 11 Mbps
+.TP
+.B
+TX80211_RATE_22MB
+Transmission at 22 Mbps
+.TP
+.B
+TX80211_RATE_24MB
+Transmission at 24 Mbps
+.TP
+.B
+TX80211_RATE_36MB
+Transmission at 36 Mbps
+.TP
+.B
+TX80211_RATE_48MB
+Transmission at 48 Mbps
+.TP
+.B
+TX80211_RATE_72MB
+Transmission at 72 Mbps
+.TP
+.B
+TX80211_RATE_96MB
+Transmission at 96 Mbps
+.TP
+.B
+TX80211_RATE_108MB
+Transmission at 108 Mbps
+.RE
+.LP
+
+.B
+NOTE:
+This function is only available for drivers with the
+.B
+TX80211_CAP_SETRATE
+capability.
+.B
+tx80211_settxrate()
+returns
+.B
+TX80211_ENOERR
+on success, < 0 on failure.
+
+.PP
+.BR tx80211_gettxrate()
+returns the configured data rate for the
+.B
+in_packet
+context.  Returns the rate as specified with the
+.B tx80211_settxrate()
+function, or
+.B TX80211_RATE_DEFAULT
+\.
+
+.PP
+.BR tx80211_setmodulation()
+is used to specify the modulation mechanism rate for the frame.  This parameter is per-packet specific (e.g. specified in the
+.I
+in_packet
+structure, allowing you to create and transmit multiple frames with different rates without having to call
+.B
+tx80211_setmodulation()
+successively for each transmission.  
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function. The
+.B rate
+specifiers are defined as follows:
+.RS
+.TP
+.B
+TX80211_MOD_DEFAULT
+Transmission using the default driver modulation mechanism for the configured channel.
+.TP
+.B
+TX80211_MOD_FHSS
+Transmission using Frequency Hopping Spread Spectrum (FHSS).  Currently, no LORCON supported drivers accommodate FHSS transmission.
+.TP
+.B
+TX80211_MOD_DSSS
+Transmission using Distributed Sequence Spread Spectrum (DSSS). This is the common modulation mechanism for IEEE 802.11b networks.
+.TP
+.B
+TX80211_MOD_OFDM
+Transmission using Orthogonal Frequency Division Multiplexing (OFDM).  This is the common modulation mechanism for IEEE 802.11g and IEEE 802.11a networks.
+.TP
+.B
+TX80211_MOD_TURBO
+Transmission using the proprietary Atheros Turbo modulation mechanism.
+.TP
+.B
+TX80211_MOD_MIMO
+Transmission using the Multiple Input Multiple Output (MIMO) mechanism specified in IEEE 802.11n.  This modulation mechanism uses a preamble that is backward-compatible with IEEE 802.11a/b/g cards.
+.TP
+.B
+TX80211_MOD_MIMOGF
+Transmission using the Multiple Input Multiple Output (MIMO) Greenfield mode specified in IEEE 802.11n.  This modulation mechanism uses a preamble that is NOT backward-compatible with IEEE 802.11a/b/g cards.
+.RE
+.LP
+.B
+NOTE:
+This function is only available for drivers with the
+.B
+TX80211_CAP_SETMODODULATION
+capability.
+.B
+tx80211_setmodulation()
+returns
+.B
+TX80211_ENOERR
+on success, < 0 on failure.
+
+.PP
+.BR tx80211_initpacket()
+is used to initialize the per-packet context.  Must be called before
+.B tx80211_txpacket().
+.I in_packet
+is the structure declared with tx80211_packet_t.
+
+.PP
+.BR tx80211_txpacket()
+is used to transmit a packet, returning the number of bytes transmitted on 
+success.  On error, TX80211_ENOTX is returned if no bytes were transmitted; TX80211_EPARTTX is returned
+if only a partial number of bytes were transmitted.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.
+.I in_packet
+is a structure consisting of two members:
+
+.RS
+.TP
+.B packet
+An 8-bit pointer to an array of bytes that represents the packet to be 
+transmitted.
+.TP
+.B plen
+An integer value indicating the length of the packet to be transmitted.
+.RE
+
+.PP
+.BR tx80211_decodepkt()
+is used to break a packet down into it's basic structures, decoding the per-packet local headers and setting the tx80211_decode structure to point to the proper offsets.  This function will grow over time to include additional decoded information.
+.I in_dlt
+is the DLT of the packet stream, via pcap_datalink() or tx80211_getdlt()
+.I decoded
+is a passed-by-reference tx80211_decode struct which is populated with information about the packet.
+.I in_packet
+is a standard byte-array packet (such as that from libpcap)
+.I in_len
+is the length of the packet array (again, from libpcap)
+
+.RS
+.TP
+.B packet
+An 8-bit pointer to an array of bytes that represents the packet to be 
+transmitted.
+.TP
+.B plen
+An integer value indicating the length of the packet to be transmitted.
+.RE
+
+.PP
+.BR tx80211_close()
+is used to close the socket opened for packet injection with the
+.B tx80211_open()
+function.
+.I in_tx
+is the structure populated by the
+.B tx80211_init
+function.  The return value is 
+.B
+TX80211_ENOERR
+on success, or < 0 if an error occured.
+
+.PP
+.SH EXAMPLE
+A sample application designed to inject a specified byte-string is shown below.
+
+.nf
+#include <stdio.h>
+#include <sys/socket.h>
+
+#include <tx80211.h>
+#include <linux/types.h>
+#include <linux/if.h>
+#include <linux/wireless.h>
+
+#define CHANNEL	11
+#define IFACE	"wlan0"
+
+void usage()
+{
+
+	tx80211_cardlist_t *cardlist = NULL;
+	int i;
+
+	printf("Usage : txack [drivername]\\n");
+
+	cardlist = tx80211_getcardlist();
+
+	if (cardlist == NULL) {
+		fprintf(stderr, "Error accessing supported cardlist.\\n");
+	} else {
+		printf("\\nSupported drivers are: ");
+		for (i = 1; i < cardlist->num_cards; i++) {
+			printf("%s ", cardlist->cardnames[i]);
+		}
+		printf("\\n");
+	}
+	tx80211_freecardlist(cardlist);
+}
+
+int main(int argc, char *argv[])
+{
+
+	/* ACK frame */
+	unsigned char packet[10] = {
+		0xd4, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x66, 0xe3, 0x76, 0x3b
+	};
+
+	tx80211_t in_tx;
+	tx80211_packet_t in_packet;
+	int drivertype;
+
+	if (argc < 2) {
+		usage();
+		return 0;
+	}
+
+	/* Use the command-line argument as the desired driver type */
+	drivertype = tx80211_resolvecard(argv[1]);
+
+	/* Validate the driver name specified */
+	if (drivertype == INJ_NODRIVER) {
+		fprintf(stderr, "Driver name not recognized.\\n");
+		return -1;
+	}
+
+	/* Initialize the in_tx structure using the resolved drivertype and
+	   interface name */
+	if (tx80211_init(&in_tx, IFACE, drivertype) < 0) {
+		fprintf(stderr, "Error initializing driver "
+				"\\"%s\\": %s.\\n", argv[1],
+				tx80211_geterrstr(&in_tx));
+		return -1;
+	}
+
+	/* Check the capability of the card to ensure it supports 
+	   transmitting control frames. */
+	if ((tx80211_getcapabilities(&in_tx) & TX80211_CAP_CTRL) == 0) {
+		fprintf(stderr, "Driver does not support transmitting "
+				"control frames.\\n");
+		return -1;
+	}
+
+	/* Place the card in monitor mode */
+	if (tx80211_setfunctionalmode(&in_tx, TX80211_FUNCMODE_INJMON) != 0) {
+		fprintf(stderr, "Error setting monitor/inject mode: %s.\\n",
+			tx80211_geterrstr(&in_tx));
+		return 1;
+	}
+
+	/* Switch to the specified channel */
+	if (tx80211_setchannel(&in_tx, CHANNEL) < 0) {
+		fprintf(stderr, "Error setting channel: %s.\\n",
+			tx80211_geterrstr(&in_tx));
+		return 1;
+	}
+
+	/* Open the interface */
+	if (tx80211_open(&in_tx) < 0) {
+		fprintf(stderr, "Unable to open interface %s: %s.\\n", 
+			in_tx.ifname, tx80211_geterrstr(&in_tx));
+		return 1;
+	}
+
+	/* Initialize in_packet and set packet contents and length of 
+	   the packet */
+	tx80211_initpacket(&in_packet);
+	in_packet.packet = packet;
+	in_packet.plen = sizeof(packet);
+
+	/* Transmit the packet */
+	if (tx80211_txpacket(&in_tx, &in_packet) < 0) {
+		fprintf(stderr, "Unable to transmit packet: %s.\\n",
+			tx80211_geterrstr(&in_tx));
+		return 1;
+	}
+
+	/* Close the socket after transmitting the packet */
+	tx80211_close(&in_tx);
+
+	return 0;
+}
+.nf
+
+.PP
+.SH AUTHORS
+.LP
+Joshua Wright <jwright@hasborg.com>
+.LP
+Mike Kershaw <dragorn@kismetwireless.net>
+.LP
+
+.SH BUGS
+Please send problems, bugs, questions, desirable enhancements, patches and source code contributions to:
+.LP
+.RS
+lorcon@802.11ninja.net
+
+.SH RESOURCES
+Please see http://802.11ninja.net/lorcon for updates to LORCON, documentation and the bug database.
+.RE
