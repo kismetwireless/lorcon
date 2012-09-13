@@ -1,6 +1,10 @@
 #include "Lorcon2.h"
 #include "ruby.h"
 
+#ifndef RUBY_19
+#include "rubysig.h"
+#endif
+
 /*
 	self.license = GPLv2;
 */
@@ -74,7 +78,7 @@ static VALUE Lorcon_list_drivers(VALUE self) {
 static VALUE Lorcon_find_driver(VALUE self, VALUE driver) {
 	VALUE hash;
 	lorcon_driver_t *dri;
-	char *drivert = StringValuePtr(driver);
+	char *drivert = RSTRING_PTR(driver);
 
 	dri = lorcon_find_driver(drivert);
 
@@ -94,7 +98,7 @@ static VALUE Lorcon_find_driver(VALUE self, VALUE driver) {
 static VALUE Lorcon_auto_driver(VALUE self, VALUE interface) {
 	VALUE hash;
 	lorcon_driver_t *dri;
-	char *intf = StringValuePtr(interface);
+	char *intf = RSTRING_PTR(interface);
 
 	dri = lorcon_auto_driver(intf);
 
@@ -117,7 +121,6 @@ void Lorcon_free(struct rldev *rld) {
 
 static VALUE Lorcon_create(int argc, VALUE *argv, VALUE self) {
 	struct rldev *rld;
-	int ret = 0;
 	char *intf = NULL, *driver = NULL;
 	VALUE rbdriver, rbintf, obj;
 	lorcon_driver_t *dri;
@@ -130,7 +133,7 @@ static VALUE Lorcon_create(int argc, VALUE *argv, VALUE self) {
 		rb_scan_args(argc, argv, "1", &rbintf);
 		intf = STR2CSTR(rbintf);
 	}
-
+	
 	if (driver == NULL) {
 		if ((dri = lorcon_auto_driver(intf)) == NULL) {
 			rb_raise(rb_eRuntimeError,
@@ -148,7 +151,8 @@ static VALUE Lorcon_create(int argc, VALUE *argv, VALUE self) {
 	obj = Data_Make_Struct(cDevice, struct rldev, 0, Lorcon_free, rld);
 
 	rld->context = lorcon_create(intf, dri);
-
+	lorcon_set_timeout(rld->context, 100);
+		
 	if (rld->context == NULL) {
 		rb_raise(rb_eRuntimeError,
 				 "LORCON could not create context");
@@ -211,10 +215,11 @@ static VALUE Lorcon_get_capiface(VALUE self) {
 }
 
 void Lorcon_packet_free(struct rlpack *rlp) {
-	/*
-	if (rlp->packet != NULL)
+	if (rlp->packet != NULL) {
 		lorcon_packet_free(rlp->packet);
-		*/
+		rlp->packet = NULL;
+		free(rlp);
+	}
 }
 
 static VALUE Lorcon_packet_create(int argc, VALUE *argv, VALUE self) {
@@ -244,7 +249,6 @@ static VALUE Lorcon_packet_get_channel(VALUE self) {
 
 static VALUE Lorcon_packet_set_channel(VALUE self, VALUE channel) {
 	struct rlpack *rlp;
-	int ret;
 
 	Data_Get_Struct(self, struct rlpack, rlp);
 
@@ -274,7 +278,7 @@ static VALUE Lorcon_packet_get_bssid(VALUE self) {
 	if (extra->bssid_mac == NULL)
 		return Qnil;
 
-	return rb_str_new(extra->bssid_mac, 6);
+	return rb_str_new((char *)extra->bssid_mac, 6);
 }
 
 static VALUE Lorcon_packet_get_source(VALUE self) {
@@ -291,7 +295,7 @@ static VALUE Lorcon_packet_get_source(VALUE self) {
 	if (extra->source_mac == NULL)
 		return Qnil;
 
-	return rb_str_new(extra->source_mac, 6);
+	return rb_str_new((char *)extra->source_mac, 6);
 }
 
 static VALUE Lorcon_packet_get_dest(VALUE self) {
@@ -308,7 +312,7 @@ static VALUE Lorcon_packet_get_dest(VALUE self) {
 	if (extra->dest_mac == NULL)
 		return Qnil;
 
-	return rb_str_new(extra->dest_mac, 6);
+	return rb_str_new((char *)extra->dest_mac, 6);
 }
 
 static VALUE Lorcon_packet_get_rawdata(VALUE self) {
@@ -318,7 +322,7 @@ static VALUE Lorcon_packet_get_rawdata(VALUE self) {
 	if (rlp->packet->packet_raw == NULL)
 		return Qnil;
 
-	return rb_str_new(rlp->packet->packet_raw, rlp->packet->length);
+	return rb_str_new((char *)rlp->packet->packet_raw, rlp->packet->length);
 }
 
 static VALUE Lorcon_packet_get_headerdata(VALUE self) {
@@ -328,7 +332,7 @@ static VALUE Lorcon_packet_get_headerdata(VALUE self) {
 	if (rlp->packet->packet_header == NULL)
 		return Qnil;
 
-	return rb_str_new(rlp->packet->packet_header, rlp->packet->length_header);
+	return rb_str_new((char *)rlp->packet->packet_header, rlp->packet->length_header);
 }
 
 static VALUE Lorcon_packet_get_data(VALUE self) {
@@ -338,7 +342,7 @@ static VALUE Lorcon_packet_get_data(VALUE self) {
 	if (rlp->packet->packet_data == NULL)
 		return Qnil;
 
-	return rb_str_new(rlp->packet->packet_data, rlp->packet->length_data);
+	return rb_str_new((char *)rlp->packet->packet_data, rlp->packet->length_data);
 }
 
 
@@ -354,7 +358,7 @@ static VALUE Lorcon_packet_getdot3(VALUE self) {
 
 	len = lorcon_packet_to_dot3(rlp->packet, &pdata);
 
-	ret = rb_str_new(pdata, len);
+	ret = rb_str_new((char *)pdata, len);
 
 	free(pdata);
 
@@ -365,8 +369,8 @@ static VALUE Lorcon_packet_prepdot3(VALUE self, VALUE dot3) {
 	struct rlpack *rlp;
 	Data_Get_Struct(self, struct rlpack, rlp);
 
-	rlp->dot3 = StringValuePtr(dot3);
-	rlp->len = RSTRING(dot3)->len;
+	rlp->dot3 = (unsigned char *) RSTRING_PTR(dot3);
+	rlp->len = RSTRING_LEN(dot3);
 
 	return dot3;
 }
@@ -375,7 +379,7 @@ static VALUE Lorcon_packet_prepbssid(VALUE self, VALUE bssid) {
 	struct rlpack *rlp;
 	Data_Get_Struct(self, struct rlpack, rlp);
 
-	rlp->bssid = StringValuePtr(bssid);
+	rlp->bssid = (unsigned char *)RSTRING_PTR(bssid);
 
 	return bssid;
 }
@@ -439,14 +443,13 @@ static VALUE Lorcon_packet_get_datalength(VALUE self) {
 	return INT2FIX(rlp->packet->length_data);
 }
 
-VALUE new_lorcon_packet(struct lorcon_packet *packet) {
+VALUE new_lorcon_packet(struct lorcon_packet **packet) {
 	struct rlpack *rlp;
 	VALUE obj;
 
 	obj = Data_Make_Struct(cPacket, struct rlpack, 0, Lorcon_packet_free, rlp);
 
-	rlp->packet = packet;
-
+	rlp->packet = *packet;
 	rb_obj_call_init(obj, 0, 0);	
 	return(obj);
 }
@@ -458,11 +461,10 @@ static VALUE Lorcon_inject_packet(VALUE self, VALUE packet) {
 	int ret;
 
 	if (rb_obj_is_kind_of(packet, cPacket) == 0) {
-		rb_raise(rb_eTypeError, "wrong type %s expected %s",
-				 rb_class2name(packet), rb_class2name(cPacket));
+		rb_raise(rb_eTypeError, "wrong type expected %s", rb_class2name(cPacket));
 		return Qnil;
 	}
-
+		
 	Data_Get_Struct(self, struct rldev, rld);
 	Data_Get_Struct(packet, struct rlpack, rlp);
 
@@ -477,74 +479,115 @@ static VALUE Lorcon_inject_packet(VALUE self, VALUE packet) {
 	return INT2FIX(ret);
 }
 
-static VALUE Lorcon_set_filter(VALUE self, VALUE filter) {
+static VALUE Lorcon_write_raw(VALUE self, VALUE rpacket) {
 	struct rldev *rld;
 	int ret;
-
+	
 	Data_Get_Struct(self, struct rldev, rld);
+	
+    if(TYPE(rpacket) != T_STRING) {
+    	rb_raise(rb_eArgError, "packet data must be a string");
+		return Qnil;
+	}
+	
+	ret = lorcon_send_bytes(rld->context, RSTRING_LEN(rpacket), (unsigned char *)RSTRING_PTR(rpacket));
+	return INT2FIX(ret);
+}
 
-	return INT2FIX(lorcon_set_filter(rld->context, StringValuePtr(filter)));
+static VALUE Lorcon_set_filter(VALUE self, VALUE filter) {
+	struct rldev *rld;
+	Data_Get_Struct(self, struct rldev, rld);
+	return INT2FIX(lorcon_set_filter(rld->context, RSTRING_PTR(filter)));
 }
 
 static VALUE Lorcon_set_channel(VALUE self, VALUE channel) {
 	struct rldev *rld;
-	int ret;
-
 	Data_Get_Struct(self, struct rldev, rld);
-
 	return INT2FIX(lorcon_set_channel(rld->context, NUM2INT(channel)));
 }
 
+static VALUE Lorcon_get_channel(VALUE self) {
+	struct rldev *rld;
+	Data_Get_Struct(self, struct rldev, rld);
+	return INT2FIX(lorcon_get_channel(rld->context));
+}
+
+static void rblorcon_pcap_handler(rblorconjob_t *job, struct pcap_pkthdr *hdr, u_char *pkt){
+	job->pkt = (unsigned char *)pkt;
+	job->hdr = *hdr;
+}
+
+static VALUE Lorcon_capture_next(VALUE self) {
+	struct rldev *rld;
+	int ret = 0;
+	struct lorcon_packet *packet;
+	unsigned char *raw;
+	pcap_t *pd;
+	rblorconjob_t job;
+	Data_Get_Struct(self, struct rldev, rld);
+
+	pd = lorcon_get_pcap(rld->context);
+	
+#ifndef RUBY_19
+	TRAP_BEG;
+#endif
+	ret = pcap_dispatch(pd, 1, (pcap_handler) rblorcon_pcap_handler, (u_char *)&job);
+#ifndef RUBY_19
+	TRAP_END;
+#endif
+		
+	if (ret == 0)
+		return(Qnil);
+
+	if (ret < 0 || job.hdr.caplen <= 0)
+		return INT2FIX(ret);
+
+	raw = malloc(job.hdr.caplen);
+	if(! raw) return Qnil;
+	
+	memcpy(raw, job.pkt, job.hdr.caplen);
+	packet = lorcon_packet_from_pcap(rld->context, &job.hdr, raw);
+	lorcon_packet_set_freedata(packet, 1);
+			
+	return new_lorcon_packet(&packet);
+}
+
+
 static VALUE Lorcon_capture_loop(int argc, VALUE *argv, VALUE self) {
 	struct rldev *rld;
-	int count, ret, p = 0;
-	struct lorcon_packet *packet;
+	int count = 0;
+	int p = 0;
 	VALUE v_cnt;
-	fd_set rset;
-	struct timeval tm;
+	VALUE ret;
 	int fd;
-
+	
 	Data_Get_Struct(self, struct rldev, rld);
 
 	if (rb_scan_args(argc, argv, "01", &v_cnt) >= 1) {
-		FIXNUM_P(v_cnt);
 		count = FIX2INT(v_cnt);
 	} else {
 		count = -1;
 	}
 
-	FD_ZERO(&rset);
-	tm.tv_sec = 0;
-	tm.tv_usec = 0;
-
 	fd = lorcon_get_selectable_fd(rld->context);
-
-	if (fd < 0) {
+	if(fd < 0 ) {
 		rb_raise(rb_eRuntimeError,
 				 "LORCON context could not provide a pollable descriptor "
 				 "and we need one for the threaded dispatch loop");
 	}
-
+	
 	while (p < count || count <= 0) {
-		FD_SET(fd, &rset);
-		if (select(fd + 1, &rset, NULL, NULL, &tm) == 0) 
+		ret = Lorcon_capture_next(self);
+		if(TYPE(ret) == T_FIXNUM) return(ret);
+		if(ret == Qnil) {
 			rb_thread_wait_fd(fd);
-		
-		ret = lorcon_next_ex(rld->context, &packet);
-
-		/* timeout */
-		if (ret == 0)
-			continue;
-
-		if (ret < 0 || packet == NULL)
-			return INT2FIX(ret);
-
-		rb_yield(new_lorcon_packet(packet));
-
-		p++;
+		} else {
+			rb_yield(ret);
+			p++;
+		}
 	}
-
-	return INT2FIX(ret);
+	
+	return INT2FIX(p);
 }
 
 
@@ -592,14 +635,14 @@ void Init_Lorcon2() {
 	rb_define_method(cDevice, "capiface", Lorcon_get_capiface, 0);
 
 	rb_define_method(cDevice, "filter=", Lorcon_set_filter, 1);
-	rb_define_method(cPacket, "channel=", Lorcon_set_channel, 1);
+	rb_define_method(cDevice, "channel=", Lorcon_set_channel, 1);
+	rb_define_method(cDevice, "channel", Lorcon_get_channel, 0);
 
 	rb_define_method(cDevice, "loop", Lorcon_capture_loop, -1);
 	rb_define_method(cDevice, "each", Lorcon_capture_loop, -1);
 	rb_define_method(cDevice, "each_packet", Lorcon_capture_loop, -1);
-
+	rb_define_method(cDevice, "write", Lorcon_write_raw, 1);
 	rb_define_method(cDevice, "inject", Lorcon_inject_packet, 1);
-
 	rb_define_module_function(mLorcon, "drivers", Lorcon_list_drivers, 0);
 	rb_define_module_function(mLorcon, "version", Lorcon_get_version, 0);
 	rb_define_module_function(mLorcon, "find_driver", Lorcon_find_driver, 1);

@@ -1,5 +1,5 @@
 
-VERSION = 20090601
+VERSION = 20091101
 
 MAJOR = 2
 MINOR = 0
@@ -29,9 +29,9 @@ DEPEND = .depend
 
 LIBOBJ = ifcontrol_linux.lo iwcontrol.lo madwifing_control.lo nl80211_control.lo \
 		 lorcon_packet.lo lorcon_packasm.lo lorcon_forge.lo \
-		 drv_mac80211.lo drv_tuntap.lo \
+		 drv_mac80211.lo drv_tuntap.lo drv_madwifing.lo \
 		 lorcon.lo 
-LIBOUT = liborcon.la
+LIBOUT = liborcon2.la
 
 TXTESTOBJ = tx.o
 TXTESTOUT = tx
@@ -49,13 +49,13 @@ $(LIBOUT):	$(LIBOBJ)
 					  -rpath $(LIB) -release $(MAJOR).$(MINOR).$(TINY)
 
 $(TXTESTOUT):	$(TXTESTOBJ)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TXTESTOUT) $(TXTESTOBJ) $(LIBS) -lorcon
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(TXTESTOUT) $(TXTESTOBJ) $(LIBS) -lorcon2
 
 $(TXTUNOUT):	$(TXTUNOBJ)
-	$(CC) $(LDFLAGS) -o $(TXTUNOUT) $(TXTUNOBJ) $(LIBS) -lorcon -lpcap
+	$(CC) $(LDFLAGS) -o $(TXTUNOUT) $(TXTUNOBJ) $(LIBS) -lorcon2 -lpcap
 
 $(L2PINGOUT):	$(L2PINGOBJ)
-	$(CC) $(LDFLAGS) -o $(L2PINGOUT) $(L2PINGOBJ) $(LIBS) -lorcon -lpcap
+	$(CC) $(LDFLAGS) -o $(L2PINGOUT) $(L2PINGOBJ) $(LIBS) -lorcon2 -lpcap
 
 install:	$(LIBOUT)
 	install -d -m 755 $(LIB)

@@ -148,6 +148,11 @@ void lorcon_packet_set_channel(lorcon_packet_t *packet, int channel);
 /* Is data freed when packet is freed (NO if sharing data block) */
 void lorcon_packet_set_freedata(lorcon_packet_t *packet, int freedata);
 
+/* Transform a LCPA into a lorcon packet */
+lorcon_packet_t *lorcon_packet_from_lcpa(struct lorcon *context,
+										 struct lcpa_metapack *lcpa);
+										 
+
 /* Transform a pcap into a lorcon packet and process the DLT */
 lorcon_packet_t *lorcon_packet_from_pcap(struct lorcon *context,
 										 const struct pcap_pkthdr *h, 

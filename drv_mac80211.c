@@ -76,11 +76,12 @@ int mac80211_openmon_cb(lorcon_t *context) {
 
 	if ((parent = nl80211_find_parent(context->vapname)) == NULL) {
 		if (nl80211_createvap(context->ifname, context->vapname, context->errstr) < 0) {
+			free(parent);
 			return -1;
 		}
-	} else {
-		free(parent);
-	}
+	} 
+
+	free(parent);
 
 	if (ifconfig_delta_flags(context->vapname, context->errstr,
 							 (IFF_UP | IFF_RUNNING | IFF_PROMISC)) < 0) {
@@ -95,7 +96,7 @@ int mac80211_openmon_cb(lorcon_t *context) {
 	pcaperr[0] = '\0';
 
 	if ((context->pcap = pcap_open_live(context->vapname, LORCON_MAX_PACKET_LEN, 
-										1, 1000, pcaperr)) == NULL) {
+										1, context->timeout_ms, pcaperr)) == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, "%s", pcaperr);
 		return -1;
 	}
@@ -165,6 +166,62 @@ int mac80211_setchan_cb(lorcon_t *context, int channel) {
 	return 0;
 }
 
+int mac80211_getchan_cb(lorcon_t *context) {
+	int ch;
+
+	if ((ch = iwconfig_get_channel(context->vapname, context->errstr)) < 0) {
+		// Fall back to parent if vap doesn't act right (mac80211 seems to do this)
+		if ((ch = iwconfig_get_channel(context->ifname, context->errstr)) < 0)
+			return -1;
+	}
+
+	return ch;
+}
+
+int mac80211_getmac_cb(lorcon_t *context, uint8_t **mac) {
+	/* 802.11 MACs are always 6 */
+	uint8_t int_mac[6];
+
+	if (ifconfig_get_hwaddr(context->vapname, context->errstr, int_mac) < 0) {
+		return -1;
+	}
+
+	(*mac) = malloc(sizeof(uint8_t) * 6);
+
+	memcpy(*mac, int_mac, 6);
+
+	return 6;
+}
+
+int mac80211_setmac_cb(lorcon_t *context, int mac_len, uint8_t *mac) {
+	short flags;
+
+	/* 802.11 MACs are always 6 */
+	if (mac_len != 6) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, 
+				 "MAC passed to mac80211 driver on %s not 6 bytes, all "
+				 "802.11 MACs must be 6 bytes", context->vapname);
+		return -1;
+	}
+
+	if (flags = ifconfig_get_flags(context->vapname, 
+								   context->errstr, &flags) < 0) 
+		return -1;
+
+	if (flags & IFF_UP) 
+		if (ifconfig_ifupdown(context->vapname, context->errstr, 0) < 0)
+			return -1;
+
+	if (ifconfig_set_hwaddr(context->vapname, context->errstr, mac) < 0)
+		return -1;
+
+	if (flags & IFF_UP)
+		if (ifconfig_ifupdown(context->vapname, context->errstr, 1) < 0)
+			return -1;
+
+	return 1;
+}
+
 int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 	int ret;
 
@@ -226,11 +283,6 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
 	ret = sendmsg(context->inject_fd, &msg, 0);
 
-	if (ret < 0) 
-		snprintf(context->errstr, LORCON_STATUS_MAX,
-				 "Driver mac80211 failed to sendmsg(): %s\n",
-				 strerror(errno));
-
 	if (freebytes)
 		free(bytes);
 	
@@ -250,6 +302,10 @@ int drv_mac80211_init(lorcon_t *context) {
 	context->sendpacket_cb = mac80211_sendpacket;
 
 	context->setchan_cb = mac80211_setchan_cb;
+	context->getchan_cb = mac80211_getchan_cb;
+
+	context->getmac_cb = mac80211_getmac_cb;
+	context->setmac_cb = mac80211_setmac_cb;
 
 	context->auxptr = extras;
 

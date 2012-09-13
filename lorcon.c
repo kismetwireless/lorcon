@@ -31,6 +31,7 @@
 #include "lorcon_int.h"
 
 #include "drv_mac80211.h"
+#include "drv_madwifing.h"
 #include "drv_tuntap.h"
 
 const char *lorcon_get_error(lorcon_t *context) {
@@ -46,6 +47,10 @@ lorcon_driver_t *lorcon_list_drivers() {
 
 #ifdef USE_DRV_TUNTAP
 	drv_head = drv_tuntap_listdriver(drv_head);
+#endif
+
+#ifdef USE_DRV_MADWIFING
+	drv_head = drv_madwifing_listdriver(drv_head);
 #endif
 
 	return drv_head;
@@ -141,6 +146,8 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	context->channel = -1;
 	context->errstr[0] = 0;
 
+	context->timeout_ms = 0;
+
 	memset(context->original_mac, 0, 6);
 
 	context->handler_cb = NULL;
@@ -156,6 +163,8 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	context->getpacket_cb = NULL;
 	context->setdlt_cb = NULL;
 	context->getdlt_cb = NULL;
+	context->getmac_cb = NULL;
+	context->setmac_cb = NULL;
 
 	context->wepkeys = NULL;
 
@@ -175,11 +184,19 @@ void lorcon_free(lorcon_t *context) {
 	free(context);
 }
 
+void lorcon_set_timeout(lorcon_t *context, int in_timeout) {
+	context->timeout_ms = in_timeout;
+}
+
+int lorcon_get_timeout(lorcon_t *context) {
+	return context->timeout_ms;
+}
+
 int lorcon_set_channel(lorcon_t *context, int channel) {
 	if (context->setchan_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not support setting channel", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->setchan_cb))(context, channel);
@@ -189,7 +206,7 @@ int lorcon_get_channel(lorcon_t *context) {
 	if (context->getchan_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not support getting channel", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->getchan_cb))(context);
@@ -199,7 +216,7 @@ int lorcon_open_inject(lorcon_t *context) {
 	if (context->openinject_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not support INJECT mode", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->openinject_cb))(context);
@@ -209,7 +226,7 @@ int lorcon_open_monitor(lorcon_t *context) {
 	if (context->openmon_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not support MONITOR mode", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->openmon_cb))(context);
@@ -219,7 +236,7 @@ int lorcon_open_injmon(lorcon_t *context) {
 	if (context->openinjmon_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not support INJMON mode", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->openinjmon_cb))(context);
@@ -256,6 +273,10 @@ int lorcon_get_selectable_fd(lorcon_t *context) {
 	return context->capture_fd;
 }
 
+pcap_t *lorcon_get_pcap(lorcon_t *context) {
+	return context->pcap;
+}
+
 void lorcon_pcap_handler(u_char *user, const struct pcap_pkthdr *h,
 						 const u_char *bytes) {
 	lorcon_t *context = (lorcon_t *) user;
@@ -275,7 +296,7 @@ int lorcon_loop(lorcon_t *context, int count, lorcon_handler callback,
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "capture driver %s did not create a pcap context",
 				 lorcon_get_driver_name(context));
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	context->handler_cb = callback;
@@ -290,7 +311,7 @@ int lorcon_dispatch(lorcon_t *context, int count, lorcon_handler callback,
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "capture driver %s did not create a pcap context",
 				 lorcon_get_driver_name(context));
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	context->handler_cb = callback;
@@ -310,7 +331,7 @@ int lorcon_next_ex(lorcon_t *context, lorcon_packet_t **packet) {
 			snprintf(context->errstr, LORCON_STATUS_MAX, 
 					 "capture driver %s did not create a pcap context and does not "
 					 "define a getpacket callback", lorcon_get_driver_name(context));
-			return -1;
+			return LORCON_ENOTSUPP;
 		}
 
 		return (*(context->getpacket_cb))(context, packet);
@@ -349,7 +370,7 @@ int lorcon_inject(lorcon_t *context, lorcon_packet_t *packet) {
 	if (context->sendpacket_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not define a send function", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	return (*(context->sendpacket_cb))(context, packet);
@@ -362,7 +383,7 @@ int lorcon_send_bytes(lorcon_t *context, int length, u_char *bytes) {
 	if (context->sendpacket_cb == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "Driver %s does not define a send function", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	pack = (lorcon_packet_t *) malloc(sizeof(lorcon_packet_t));
@@ -405,7 +426,7 @@ int lorcon_set_filter(lorcon_t *context, const char *filter) {
 	if (context->pcap == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX,
 				 "Driver %s does not define a pcap capture type", context->drivername);
-		return -1;
+		return LORCON_ENOTSUPP;
 	}
 
 	if (pcap_compile(context->pcap, &fp, filter, 1, 0) < 0) {
@@ -422,4 +443,43 @@ int lorcon_set_filter(lorcon_t *context, const char *filter) {
 
 	return 1;
 }
+
+int lorcon_set_compiled_filter(lorcon_t *context, struct bpf_program *filter) {
+	if (context->pcap == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "Driver %s does not define a pcap capture type", context->drivername);
+		return LORCON_ENOTSUPP;
+	}
+
+	if (pcap_setfilter(context->pcap, filter) < 0) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "%s", pcap_geterr(context->pcap));
+		return -1;
+	}
+
+	return 1;
+}
+
+int lorcon_get_hwmac(lorcon_t *context, uint8_t **mac) {
+	if (context->getmac_cb == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "Driver %s does not support fetching MAC address",
+				 context->drivername);
+		return LORCON_ENOTSUPP;
+	}
+
+	return (*(context->getmac_cb))(context, mac);
+}
+
+int lorcon_set_hwmac(lorcon_t *context, int mac_len, uint8_t *mac) {
+	if (context->setmac_cb == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "Driver %s does not support fetching MAC address",
+				 context->drivername);
+		return LORCON_ENOTSUPP;
+	}
+
+	return (*(context->setmac_cb))(context, mac_len, mac);
+}
+
 

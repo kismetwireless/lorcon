@@ -18,222 +18,297 @@
     Copyright (c) 2005 dragorn and Joshua Wright
 */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
+#include "drv_madwifing.h"
 
 #ifdef SYS_LINUX
 
-#include "mwnginject.h"
-#include "wtinject.h"
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+
+#include <net/if_arp.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <netinet/if_ether.h>
+#include <arpa/inet.h>
+#include <sys/poll.h>
+#include <sys/types.h>
+
+#include <linux/types.h>
+#include <linux/if.h>
+#include <linux/wireless.h>
+
+#include <net/ethernet.h>
+#include <netpacket/packet.h>
+
 #include "ifcontrol_linux.h"
 #include "madwifing_control.h"
-#include "tx80211_errno.h"
+#include "lorcon_int.h"
 
-int tx80211_madwifing_init(struct tx80211 *in_tx)
-{
-	in_tx->capabilities = tx80211_madwifing_capabilities();
-	in_tx->open_callthrough = &madwifing_open;
-	in_tx->close_callthrough = &madwifing_close;
-	in_tx->setmode_callthrough = &wtinj_setmode;
-	in_tx->getmode_callthrough = &wtinj_getmode;
-	in_tx->getchan_callthrough = &wtinj_getchannel;
-	in_tx->setchan_callthrough = &wtinj_setchannel;
-	in_tx->txpacket_callthrough = &madwifing_send;
-	in_tx->setfuncmode_callthrough = &madwifing_setfuncmode;
-	in_tx->selfack_callthrough = &madwifing_selfack;
+/* Monitor, inject, and injmon are all the same method, make a new
+ * mwng VAP */
+int madwifing_openmon_cb(lorcon_t *context) {
+	struct madwifi_vaps *mwvaps;
+	char *parent;
+	char pcaperr[PCAP_ERRBUF_SIZE];
+	short flags;
+	struct ifreq if_req;
+	struct sockaddr_ll sa_ll;
+	int optval;
+	socklen_t optlen;
 
-	in_tx->extra = NULL;
-
-	return 0;
-}
-
-int tx80211_madwifing_capabilities()
-{
-	/* madwifi-ng does not allow seq# spoofing at the moment */
-	return (TX80211_CAP_SNIFF | TX80211_CAP_TRANSMIT |
-	/* The card allows SEQ spoofing, but the driver prevents it. Need
-	   to figure out how to change driver appropriately to re-enable */
-	/*	TX80211_CAP_SEQ |  */
-		TX80211_CAP_BSSTIME |
-		TX80211_CAP_FRAG | TX80211_CAP_CTRL | 
-		TX80211_CAP_DURID | TX80211_CAP_SNIFFACK | 
-		TX80211_CAP_DSSSTX | TX80211_CAP_OFDMTX |
-		TX80211_CAP_SELFACK | TX80211_CAP_SETRATE |
-		TX80211_CAP_SETMODULATION);
-}
-
-
-int madwifing_open(struct tx80211 *in_tx)
-{
-	/* This always "succeeds" because we don't open until we set funcmode.
-	 * Thanks, vaps.  Ugh.
-	 */
-	return 0;
-}
-
-int madwifing_close(struct tx80211 *in_tx)
-{
-	/* We always succeed at closing so we don't check.
-	 * Close the injector normally, then if we use the ptr hack to indicate we're
-	 * a self-made vap, destroy it too */
-	wtinj_close(in_tx);
-
-	/* if we have a saved interface, pull it back into ifname */
-	if (in_tx->extra != NULL) {
-		madwifing_destroy_vap(in_tx->ifname, in_tx->errstr);
-		snprintf(in_tx->ifname, IFNAMSIZ, "%s", in_tx->extra);
-		free(in_tx->extra);
-		in_tx->extra = NULL;
-	}
-
-	return 0;
-}
-
-int madwifing_setfuncmode(struct tx80211 *wtinj, int funcmode)
-{
-	struct madwifi_vaps *vaplist = NULL;
-	int n;
-
-	if (funcmode == TX80211_FUNCMODE_RFMON ||
-		funcmode == TX80211_FUNCMODE_INJECT ||
-		funcmode == TX80211_FUNCMODE_INJMON) {
-
-		/*
-		 * If we weren't passed a rfmon vap already... This will fail
-		 * for the master interface it doesn't get a /sys entry
-		 */
-		if (madwifing_setdevtype(wtinj->ifname, ARPHDR_RADIOTAP, 
-				wtinj->errstr) != 0) {
-			if (wtinj->extra != NULL) {
-				/* If we've got a cached controller name, swap to it */
-				snprintf(wtinj->ifname, IFNAMSIZ, "%s", wtinj->extra);
-			}
-
-			vaplist = madwifing_list_vaps(wtinj->ifname, wtinj->errstr);
-			if (vaplist != NULL) {
-				for (n = 0; n < vaplist->vaplen; n++) {
-					if (madwifing_destroy_vap(vaplist->vaplist[n], wtinj->errstr) < 0) {
-						madwifing_free_vaps(vaplist);
-						return -1;
-					}
-				}
-				madwifing_free_vaps(vaplist);
-			}
-
-
-			/* If we haven't remembered a controlling interface before, remember it now */
-			if (wtinj->extra == NULL) {
-				wtinj->extra = strdup(wtinj->ifname);
-			}
-
-			/* Build the vap and put the name into ifname */
-			if (madwifing_build_vap(wtinj->ifname, wtinj->errstr, "lorcon", wtinj->ifname, 
-									IEEE80211_M_MONITOR, IEEE80211_CLONE_BSSID) < 0) {
-				free(wtinj->extra);
-				wtinj->extra = NULL;
-				return -1;
-			}
-
-		} 
-
-
-		if (wtinj_open(wtinj) != 0) {
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-int madwifing_send(struct tx80211 *in_tx, struct tx80211_packet *in_pkt)
-{
-	struct tx80211_packet mwng_pkt;
-	struct tx80211_radiotap_header *rtaphdr;
-	uint8_t *pkt;
-	int len, channel, sendcount;
-
-	memset(&mwng_pkt, 0, sizeof(mwng_pkt));
-	len = (in_pkt->plen + TX80211_RTAP_LEN);
-
-	pkt = malloc(len);
-	if (pkt == NULL) {
-		snprintf(in_tx->errstr, TX80211_STATUS_MAX, 
-				"Unable to allocate memory buffer "
-				"for send function");
+	if ((mwvaps = madwifing_list_vaps(context->ifname, context->errstr)) == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "drv_madwifing failed to find "
+				 "information about %s", context->ifname);
 		return -1;
 	}
 
-	memset(pkt, 0, len);
-
-	channel = tx80211_getchannel(in_tx);
-
-	/* Setup radiotap header */
-	rtaphdr = (struct tx80211_radiotap_header *)pkt;
-	rtaphdr->it_version = 0;
-	rtaphdr->it_pad = 0;
-	rtaphdr->it_len = tx80211_le16(TX80211_RTAP_LEN);
-	rtaphdr->it_present = tx80211_le32(TX80211_RTAP_PRESENT);
-	rtaphdr->wr_flags = 0;
-	rtaphdr->wr_rate = in_pkt->txrate; /* 0 if not set for default */
-	rtaphdr->wr_chan_freq = tx80211_chan2mhz(channel);
-
-	switch(in_pkt->modulation) {
-		case TX80211_MOD_DEFAULT:
-			rtaphdr->wr_chan_flags = 0;
-			break;
-		case TX80211_MOD_DSSS:
-			rtaphdr->wr_chan_flags =
-				tx80211_le16(TX80211_RTAP_CHAN_B);
-			break;
-		case TX80211_MOD_OFDM:
-			/* OFDM can be 802.11g or 802.11a */
-			if (channel <= 14) {
-				/* 802.11g network */
-				rtaphdr->wr_chan_flags = 
-					tx80211_le16(TX80211_RTAP_CHAN_G);
-			} else {
-				rtaphdr->wr_chan_flags = 
-					tx80211_le16(TX80211_RTAP_CHAN_A);
-			}
-			break;
-		case TX80211_MOD_TURBO:
-			/* Turbo can be 802.11g or 802.11a */
-			if (channel <= 14) {
-				/* 802.11g network */
-				rtaphdr->wr_chan_flags = 
-					tx80211_le16(TX80211_RTAP_CHAN_TG);
-			} else {
-				rtaphdr->wr_chan_flags = 
-					tx80211_le16(TX80211_RTAP_CHAN_TA);
-			}
-			break;
-		default:
-			snprintf(in_tx->errstr, TX80211_STATUS_MAX, 
-					"Unsupported modulation mechanism "
-					"specified in send function.");
-			return TX80211_ENOTSUPP;
+	// Assign a vapname based on the interface
+	if (strlen(context->vapname) == 0) {
+		snprintf(context->vapname, MAX_IFNAME_LEN, "%smon", context->ifname);
 	}
 
-	memcpy(pkt + TX80211_RTAP_LEN, in_pkt->packet, in_pkt->plen);
 
-	mwng_pkt.packet = pkt;
-	mwng_pkt.plen = len;
-
-	sendcount = wtinj_send(in_tx, &mwng_pkt);
-	free(pkt);
-
-	if (sendcount < 0) {
-		return TX80211_ENOTX;
-	} else if (sendcount != mwng_pkt.plen) {
-		snprintf(in_tx->errstr, TX80211_STATUS_MAX,
-			"Error sending packet data, partial write.");
-		return TX80211_EPARTTX;
-	} else {
-		return (sendcount);
+	// Find the parent of whatever interface they specified (ought to be the 
+	// parent already)
+	if ((parent = madwifing_find_parent(mwvaps)) == NULL) {
+		free(parent);
+		madwifing_free_vaps(mwvaps);
+		return -1;
 	}
+
+	// Make a vap
+	if (madwifing_build_vap(parent, context->errstr, context->vapname,
+							context->vapname, IEEE80211_M_MONITOR, 
+							IEEE80211_CLONE_BSSID) < 0) { 
+		free(parent);
+		madwifing_free_vaps(mwvaps);
+		return -1;
+	}
+
+	madwifing_free_vaps(mwvaps);
+	free(parent);
+	parent = NULL;
+
+	if (ifconfig_delta_flags(context->vapname, context->errstr,
+							 (IFF_UP | IFF_RUNNING | IFF_PROMISC)) < 0) {
+		return -1;
+	}
+
+	// Set the VAP to radiotap
+	if (madwifing_setdevtype(context->vapname, ARPHDR_RADIOTAP, 
+							 context->errstr) != 0) {
+		return -1;
+	}
+
+	pcaperr[0] = '\0';
+
+	if ((context->pcap = pcap_open_live(context->vapname, LORCON_MAX_PACKET_LEN, 
+										1, context->timeout_ms, pcaperr)) == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "%s", pcaperr);
+		return -1;
+	}
+
+	context->capture_fd = pcap_get_selectable_fd(context->pcap);
+
+	context->dlt = pcap_datalink(context->pcap);
+
+	context->inject_fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+
+	if (context->inject_fd < 0) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "failed to create injection "
+				 "socket: %s", strerror(errno));
+		pcap_close(context->pcap);
+		return -1;
+	}
+
+	memset(&if_req, 0, sizeof(if_req));
+	memcpy(if_req.ifr_name, context->vapname, IFNAMSIZ);
+	if_req.ifr_name[IFNAMSIZ - 1] = 0;
+	if (ioctl(context->inject_fd, SIOCGIFINDEX, &if_req) < 0) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "failed to get interface idex: %s",
+				 strerror(errno));
+		close(context->inject_fd);
+		pcap_close(context->pcap);
+		return -1;
+	}
+
+	memset(&sa_ll, 0, sizeof(sa_ll));
+	sa_ll.sll_family = AF_PACKET;
+	sa_ll.sll_protocol = htons(ETH_P_ALL);
+	sa_ll.sll_ifindex = if_req.ifr_ifindex;
+
+	if (bind(context->inject_fd, (struct sockaddr *) &sa_ll, sizeof(sa_ll)) != 0) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "failed to bind injection "
+				 "socket: %s", strerror(errno));
+		close(context->inject_fd);
+		pcap_close(context->pcap);
+		return -1;
+	}
+
+	optlen = sizeof(optval);
+	optval = 20;
+	if (setsockopt(context->inject_fd, SOL_SOCKET, SO_PRIORITY, &optval, optlen)) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, "failed to set priority on "
+				 "injection socket: %s", strerror(errno));
+		close(context->inject_fd);
+		pcap_close(context->pcap);
+		return -1;
+	}
+
+	return 1;
 }
 
+
+int madwifing_getmac_cb(lorcon_t *context, uint8_t **mac) {
+	/* 802.11 MACs are always 6 */
+	uint8_t int_mac[6];
+
+	if (ifconfig_get_hwaddr(context->vapname, context->errstr, int_mac) < 0) {
+		return -1;
+	}
+
+	(*mac) = malloc(sizeof(uint8_t) * 6);
+
+	memcpy(*mac, int_mac, 6);
+
+	return 6;
+}
+
+int madwifing_setmac_cb(lorcon_t *context, int mac_len, uint8_t *mac) {
+	short flags;
+
+	/* 802.11 MACs are always 6 */
+	if (mac_len != 6) {
+		snprintf(context->errstr, LORCON_STATUS_MAX, 
+				 "MAC passed to mac80211 driver on %s not 6 bytes, all "
+				 "802.11 MACs must be 6 bytes", context->vapname);
+		return -1;
+	}
+
+	if (flags = ifconfig_get_flags(context->vapname, 
+								   context->errstr, &flags) < 0) 
+		return -1;
+
+	if (flags & IFF_UP) 
+		if (ifconfig_ifupdown(context->vapname, context->errstr, 0) < 0)
+			return -1;
+
+	if (ifconfig_set_hwaddr(context->vapname, context->errstr, mac) < 0)
+		return -1;
+
+	if (flags & IFF_UP)
+		if (ifconfig_ifupdown(context->vapname, context->errstr, 1) < 0)
+			return -1;
+
+	return 1;
+}
+
+int madwifing_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
+	int ret;
+
+	u_char rtap_hdr[] = {
+		/* rt version */
+		0x00, 0x00, 
+		/* rt len */
+		0x0e, 0x00, 
+		/* rt bitmap, flags, tx, rx */
+		0x02, 0xc0, 0x00, 0x00, 
+		/* Don't allow frgmentation */
+		0x00,
+		/* pad */
+		0x00,
+		/* rx and tx set to inject */
+		0x00, 0x00,
+		0x00, 0x00,
+	};
+
+	u_char *bytes;
+	int len, freebytes;
+
+	struct iovec iov[2];
+
+	struct msghdr msg = {
+		.msg_name = NULL,
+		.msg_namelen = 0,
+		.msg_iov = iov,
+		.msg_iovlen = 2,
+		.msg_control = NULL,
+		.msg_controllen = 0,
+		.msg_flags = 0,
+	};
+
+	if (packet->lcpa != NULL) {
+		len = lcpa_size(packet->lcpa);
+		freebytes = 1;
+		bytes = (u_char *) malloc(sizeof(u_char) * len);
+		lcpa_freeze(packet->lcpa, bytes);
+	} else if (packet->packet_header != NULL) {
+		freebytes = 0;
+		len = packet->length_header;
+		bytes = (u_char *) packet->packet_header;
+	} else {
+		freebytes = 0;
+		len = packet->length;
+		bytes = (u_char *) packet->packet_raw;
+	}
+
+	iov[0].iov_base = &rtap_hdr;
+	iov[0].iov_len = sizeof(rtap_hdr);
+	iov[1].iov_base = bytes;
+	iov[1].iov_len = len;
+
+	/*
+	if (encrypt)
+		rtap_hdr[8] |= IEEE80211_RADIOTAP_F_WEP;
+	*/
+
+	ret = sendmsg(context->inject_fd, &msg, 0);
+
+	if (freebytes)
+		free(bytes);
+	
+	return ret;
+}
+
+int drv_madwifing_init(lorcon_t *context) {
+	context->openinject_cb = madwifing_openmon_cb;
+	context->openmon_cb = madwifing_openmon_cb;
+	context->openinjmon_cb = madwifing_openmon_cb;
+
+	context->sendpacket_cb = madwifing_sendpacket;
+
+	context->getmac_cb = madwifing_getmac_cb;
+	context->setmac_cb = madwifing_setmac_cb;
+
+	context->auxptr = NULL;
+
+	return 1;
+}
+
+int drv_madwifing_probe(const char *interface) {
+
+	return 0;
+}
+
+lorcon_driver_t *drv_madwifing_listdriver(lorcon_driver_t *head) {
+	lorcon_driver_t *d = (lorcon_driver_t *) malloc(sizeof(lorcon_driver_t));
+
+	d->name = strdup("madwifing");
+	d->details = strdup("Linux madwifi-ng drivers, deprecated by ath5k and ath9k");
+	d->init_func = drv_madwifing_init;
+	d->probe_func = drv_madwifing_probe;
+
+	d->next = head;
+
+	return d;
+}
+
+#if 0
 /* 
  * Change the local interface to the specified MAC address to let the 
  * Atheros chip ACK for us.
@@ -324,5 +399,6 @@ int madwifing_selfack(struct tx80211 *in_tx, uint8_t *addr)
 	return 0;
 }
 
+#endif
 
 #endif /* linux */

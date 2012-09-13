@@ -176,7 +176,7 @@ void lcpf_beacon(struct lcpa_metapack *pack, uint8_t *src, uint8_t *bssid,
 	uint64_t *ch64 = (uint64_t *) chunk;
 
 	memcpy(chunk, "\xFF\xFF\xFF\xFF\xFF\xFF", 6);
-	lcpf_80211headers(pack, 0, 8, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_BEACON, framecontrol, duration,
 					  chunk, src, bssid, NULL,
 					  fragment, sequence);
 
@@ -208,7 +208,7 @@ void lcpf_deauth(struct lcpa_metapack *pack, uint8_t *src, uint8_t *dst,
 	uint8_t chunk[2];
 	uint16_t *ch16 = (uint16_t *) chunk;
 
-	lcpf_80211headers(pack, 0, 12, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_DEAUTH, framecontrol, duration,
 					  dst, src, bssid, NULL, fragment, sequence);
 
 	*ch16 = reasoncode;
@@ -221,7 +221,7 @@ void lcpf_disassoc(struct lcpa_metapack *pack, uint8_t *src, uint8_t *dst,
 	uint8_t chunk[2];
 	uint16_t *ch16 = (uint16_t *) chunk;
 
-	lcpf_80211headers(pack, 0, 10, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_DISASSOC, framecontrol, duration,
 					  dst, src, bssid, NULL, fragment, sequence);
 
 	*ch16 = reasoncode;
@@ -232,7 +232,7 @@ void lcpf_probereq(struct lcpa_metapack *pack, uint8_t *src, int framecontrol,
 		int duration, int fragment, int sequence) {
 
 	uint8_t chunk[6] = "\xFF\xFF\xFF\xFF\xFF\xFF";
-	lcpf_80211headers(pack, 0, 4, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_PROBEREQ, framecontrol, duration,
 			chunk, src, chunk, NULL, fragment, sequence);
 }
 
@@ -245,7 +245,7 @@ void lcpf_proberesp(struct lcpa_metapack *pack, uint8_t *dst, uint8_t *src,
 	uint16_t *sixptr = (uint16_t *) chunk;
 	uint64_t *ch64 = (uint64_t *) chunk;
 
-	lcpf_80211headers(pack, 0, 5, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_PROBERESP, framecontrol, duration,
 					  dst, src, bssid, NULL,
 					  fragment, sequence);
 
@@ -275,7 +275,7 @@ void lcpf_authreq(struct lcpa_metapack *pack, uint8_t *dst, uint8_t *src,
 	uint8_t chunk[2];
 	uint16_t *sixptr = (uint16_t *) chunk;
 	
-	lcpf_80211headers(pack, 0, 11, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_AUTH, framecontrol, duration,
 					  dst, src, bssid, NULL,
 					  fragment, sequence);
 
@@ -305,7 +305,7 @@ void lcpf_assocreq(struct lcpa_metapack *pack, uint8_t *dst, uint8_t *src,
 	uint8_t chunk[2];
 	uint16_t *sixptr = (uint16_t *) chunk;
 
-	lcpf_80211headers(pack, 0, 5, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_ASSOCREQ, framecontrol, duration,
 					  dst, src, bssid, NULL,
 					  fragment, sequence);
 
@@ -323,7 +323,7 @@ void lcpf_assocresp(struct lcpa_metapack *pack, uint8_t *dst, uint8_t *src,
 	uint8_t chunk[2];
 	uint16_t *sixptr = (uint16_t *) chunk;
 
-	lcpf_80211headers(pack, 0, 5, framecontrol, duration,
+	lcpf_80211headers(pack, WLAN_FC_TYPE_MGMT, WLAN_FC_SUBTYPE_ASSOCRESP, framecontrol, duration,
 					  dst, src, bssid, NULL,
 					  fragment, sequence);
 

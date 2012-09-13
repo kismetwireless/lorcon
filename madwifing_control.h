@@ -59,6 +59,8 @@ int madwifing_build_vap(const char *ifname, char *errstr, const char *vapname,
 /* Set the device type for a VAP */
 int madwifing_setdevtype(const char *ifname, char *devtype, char *errstr);
 
+char *madwifing_find_parent(struct madwifi_vaps *vaplist);
+
 #endif
 #endif
 

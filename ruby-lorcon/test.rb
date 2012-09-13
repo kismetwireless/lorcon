@@ -1,8 +1,12 @@
 #!/usr/bin/env ruby
 
 $:.unshift(File.dirname(__FILE__))
+
 require "Lorcon2"
+require 'thread'
 require "pp"
+
+intf = ARGV.shift || "wlan0"
 
 $stdout.puts "Checking LORCON version"
 
@@ -18,10 +22,10 @@ pp Lorcon.find_driver("mac80211")
 
 $stdout.puts "\nAuto-detecting driver for interface wlan0"
 
-pp Lorcon.auto_driver("wlan0")
+pp Lorcon.auto_driver(intf)
 
-#tx = Lorcon::Device.new('kismet0', 'tuntap')
-tx = Lorcon::Device.new('wlan0')
+
+tx = Lorcon::Device.new(intf)
 $stdout.puts "\nCreated LORCON context"
 
 if tx.openinjmon()
@@ -30,33 +34,32 @@ else
 	$stdout.puts "\nFAILED to open " + tx.capiface + " as INJMON: " + tx.error
 end
 
-scan_patterns = ["^GET ([^ ?]+)"]
+if tx.channel < 0
+	$stdout.puts "\nChannel fetch error: " + tx.error
+else
+	$stdout.puts "\nChannel: " + tx.channel.to_s()
+end
 
-tx.each_packet { |pkt| 
-	d3 = pkt.dot3
-
-	if d3 != nil then 
-		p3pfu = PacketFu::Packet.parse(d3)
-
-		scan_patterns.each {|sig| hit = p3pfu.payload.scan(/#{sig}/i) || nil 
-		 	printf "#{Time.now}: %s HTTP GET %s [%s] SEQ %u\n" % [p3pfu.ip_saddr, p3pfu.ip_daddr, sig, p3pfu.tcp_seq] unless hit.size.zero? 
-		}
+def safe_loop(wifi)
+	@q = Queue.new
+	reader = Thread.new do 
+		wifi.each_packet {|pkt| @q << pkt }
 	end
-}
 
-
-# tx.fmode      = "INJECT"
-# tx.channel    = 11
-# tx.txrate     = 2
-# tx.modulation = "DSSS"
-# 
-# sa = Time.now.to_f
-# tx.write(packet, 500, 0)
-# ea = Time.now.to_f - sa
-# 
-# sb = Time.now.to_f
-# 500.times { tx.write(packet, 1, 0) }
-# eb = Time.now.to_f - sb
-# 
-# $stdout.puts "Sent 500 packets (C) in #{ea.to_s} seconds"
-# $stdout.puts "Sent 500 packets (Ruby) in #{eb.to_s} seconds"
+	eater = Thread.new do
+		while(pkt = @q.pop)
+			yield(pkt)
+		end
+	end
+	
+	begin
+		eater.join
+	rescue ::Interrupt => e
+		reader.kill if reader.alive?
+		puts "ALL DONE!"
+	end
+end
+		
+safe_loop(tx) do |pkt|
+	pp pkt
+end

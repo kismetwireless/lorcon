@@ -21483,8 +21483,8 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 else
-	{ $as_echo "$as_me:$LINENO: result: libnl detected but no support for mac80211 your kernel is probably too old for mac80211 or nl80211 upgrade your kernel then reinstall the latest netlink to get mac80211 support." >&5
-$as_echo "libnl detected but no support for mac80211 your kernel is probably too old for mac80211 or nl80211 upgrade your kernel then reinstall the latest netlink to get mac80211 support." >&6; }
+	{ $as_echo "$as_me:$LINENO: result: no libnl/libnl doesn't have mac80211 support" >&5
+$as_echo "no libnl/libnl doesn't have mac80211 support" >&6; }
 fi
 
 fi

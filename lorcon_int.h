@@ -69,6 +69,8 @@ struct lorcon {
 
 	uint8_t original_mac[6];
 
+	int timeout_ms;
+
 	void *auxptr;
 
 	lorcon_handler handler_cb;
@@ -90,6 +92,9 @@ struct lorcon {
 	int (*getdlt_cb)(lorcon_t *context);
 
 	lorcon_wep_t *wepkeys;
+
+	int (*getmac_cb)(lorcon_t *context, uint8_t **mac);
+	int (*setmac_cb)(lorcon_t *context, int len, uint8_t *mac);
 };
 
 #endif

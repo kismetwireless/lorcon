@@ -212,5 +212,16 @@ int madwifing_setdevtype(const char *ifname, char *devtype, char *errstr)
 	return 0;
 }
 
+char *madwifing_find_parent(struct madwifi_vaps *vaplist) {
+	int x;
+
+	for (x = 0; x < vaplist->vaplen; x++) {
+		if (strncmp("wifi", vaplist->vaplist[x], 4) == 0)
+			return strdup(vaplist->vaplist[x]);
+	}
+
+	return NULL;
+}
+
 #endif /* linux */
 

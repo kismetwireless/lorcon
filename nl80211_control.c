@@ -544,7 +544,7 @@ int nl80211_get_chanlist(const char *interface, int *ret_num_chans, int **ret_ch
 #ifndef HAVE_LINUX_NETLINK
 	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
 			 "support, check the output of ./configure for why");
-	return nl80211_CHANLIST_NOT_nl80211;
+	return NL80211_CHANLIST_NOT_NL80211;
 #else
 	void *handle, *cache, *family;
 	struct nl_cb *cb;

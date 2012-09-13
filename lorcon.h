@@ -26,7 +26,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <lorcon_packet.h>
+#include "lorcon_packet.h"
 
 #define LORCON_STATUS_MAX		1024
 
@@ -37,6 +37,8 @@ typedef struct pcap pcap_t;
 
 struct lorcon;
 typedef struct lorcon lorcon_t;
+
+struct bpf_program;
 
 /* Handlers from capture loops are expected to free their own packets */
 typedef void (*lorcon_handler)(lorcon_t *, lorcon_packet_t *, u_char *user);
@@ -71,6 +73,12 @@ void lorcon_free_driver_list(lorcon_driver_t *list);
 lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver);
 void lorcon_free(lorcon_t *context);
 
+/* Set a capture timeout (equivalent to the timeout value in pcap_open,
+ * but with implications for non-pcap sources as well).  Timeout value 
+ * is in ms */
+void lorcon_set_timeout(lorcon_t *context, int in_timeout);
+int lorcon_get_timeout(lorcon_t *context);
+
 /* Open an interface for inject */
 int lorcon_open_inject(lorcon_t *context);
 
@@ -102,6 +110,19 @@ int lorcon_set_datalink(lorcon_t *context, int dlt);
 int lorcon_set_channel(lorcon_t *context, int channel);
 int lorcon_get_channel(lorcon_t *context);
 
+/* Get/set MAC address, returns length of MAC and allocates in **mac,
+ * caller is responsible for freeing this memory.  Different PHY types
+ * may have different MAC lengths. 
+ *
+ * For 802.11, MAC is always 6 bytes.
+ *
+ * A length of 0 indicates no set MAC on this PHY.  Negative numbers
+ * indicate error fetching MAC from hardware. */
+int lorcon_get_hwmac(lorcon_t *context, uint8_t **mac);
+/* Set a MAC, if the PHY supports it.  Negative on failure.  For 802.11,
+ * MAC must always be 6 bytes. */
+int lorcon_set_hwmac(lorcon_t *context, int mac_len, uint8_t *mac);
+
 /* Get a pcap_t */
 pcap_t *lorcon_get_pcap(lorcon_t *context);
 
@@ -114,6 +135,9 @@ int lorcon_next_ex(lorcon_t *context, lorcon_packet_t **packet);
 
 /* Add a capture filter (if possible) using pcap bpf */
 int lorcon_set_filter(lorcon_t *context, const char *filter);
+
+/* Add a precompiled filter (again, using bpf) */
+int lorcon_set_compiled_filter(lorcon_t *context, struct bpf_program *filter);
 
 /* Pass through to pcap instance */
 int lorcon_loop(lorcon_t *context, int count, lorcon_handler callback, u_char *user);
@@ -130,5 +154,13 @@ unsigned long int lorcon_get_version();
 
 /* Add a wep key to a context */
 int lorcon_add_wepkey(lorcon_t *context, u_char *bssid, u_char *key, int length);
+
+/* Error codes testable on return values */
+
+/* Generic failure */
+#define LORCON_EGENERIC		-1
+/* Function not supported on this hardware */
+#define LORCON_ENOTSUPP		-255
+
 
 #endif

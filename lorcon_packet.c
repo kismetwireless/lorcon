@@ -290,7 +290,7 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 		extra->to_ds = (packet->packet_header[1] & WLAN_FC_TODS);
 		extra->from_ds = (packet->packet_header[1] & WLAN_FC_FROMDS);
 
-		extra->fragmented = (packet->packet_header[1] & WLAN_FC_RETRY);
+		extra->fragmented = (packet->packet_header[1] & WLAN_FC_MOREFRAG);
 		extra->retry = (packet->packet_header[1] & WLAN_FC_RETRY);
 		extra->protected = (packet->packet_header[1] & WLAN_FC_ISWEP);
 
@@ -307,6 +307,11 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 			extra->corrupt = 1;
 			return 1;
 		}
+		pu16 = (uint16_t *) (packet->packet_header + 22);
+		extra->sequence = lorcon_le16(*pu16);
+		extra->fragment = WLAN_SEQCTL_FRAGNO(extra->sequence);
+		extra->sequence = WLAN_SEQCTL_SEQNO(extra->sequence);
+
 
 		if (extra->type == WLAN_FC_TYPE_MGMT) {
 			switch (extra->subtype) {
@@ -394,6 +399,22 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 
 void lorcon_packet_set_freedata(lorcon_packet_t *packet, int freedata) {
 	packet->free_data = freedata;
+}
+
+lorcon_packet_t *lorcon_packet_from_lcpa(struct lorcon *context,
+										 struct lcpa_metapack *lcpa) {
+	lorcon_packet_t *l_packet;
+
+	if (lcpa == NULL)
+		return NULL;
+
+	l_packet = (lorcon_packet_t *) malloc(sizeof(lorcon_packet_t));
+
+	memset(l_packet, 0, sizeof(lorcon_packet_t));
+
+	l_packet->lcpa = lcpa;
+
+	return l_packet;
 }
 
 lorcon_packet_t *lorcon_packet_from_pcap(lorcon_t *context,
