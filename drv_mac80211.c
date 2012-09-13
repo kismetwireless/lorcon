@@ -283,6 +283,9 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
 	ret = sendmsg(context->inject_fd, &msg, 0);
 
+	snprintf(context->errstr, LORCON_STATUS_MAX, "drv_mac80211 failed "
+			 "to send packet: %s", strerror(errno));
+
 	if (freebytes)
 		free(bytes);
 	
