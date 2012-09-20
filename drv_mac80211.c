@@ -213,7 +213,7 @@ int mac80211_setmac_cb(lorcon_t *context, int mac_len, uint8_t *mac) {
 	if (ifconfig_ifupdown(context->vapname, context->errstr, 1) < 0)
 		return -1;
 
-	return 1;
+	return 0;
 }
 
 int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
