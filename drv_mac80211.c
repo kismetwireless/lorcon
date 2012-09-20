@@ -204,20 +204,14 @@ int mac80211_setmac_cb(lorcon_t *context, int mac_len, uint8_t *mac) {
 		return -1;
 	}
 
-	if (flags = ifconfig_get_flags(context->vapname, 
-								   context->errstr, &flags) < 0) 
+	if (ifconfig_ifupdown(context->vapname, context->errstr, 0) < 0)
 		return -1;
-
-	if (flags & IFF_UP) 
-		if (ifconfig_ifupdown(context->vapname, context->errstr, 0) < 0)
-			return -1;
 
 	if (ifconfig_set_hwaddr(context->vapname, context->errstr, mac) < 0)
 		return -1;
 
-	if (flags & IFF_UP)
-		if (ifconfig_ifupdown(context->vapname, context->errstr, 1) < 0)
-			return -1;
+	if (ifconfig_ifupdown(context->vapname, context->errstr, 1) < 0)
+		return -1;
 
 	return 1;
 }
