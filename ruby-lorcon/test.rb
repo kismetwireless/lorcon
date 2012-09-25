@@ -34,12 +34,6 @@ else
 	$stdout.puts "\nFAILED to open " + tx.capiface + " as INJMON: " + tx.error
 end
 
-if tx.channel < 0
-	$stdout.puts "\nChannel fetch error: " + tx.error
-else
-	$stdout.puts "\nChannel: " + tx.channel.to_s()
-end
-
 def safe_loop(wifi)
 	@q = Queue.new
 	reader = Thread.new do 
