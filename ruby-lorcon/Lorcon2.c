@@ -127,11 +127,11 @@ static VALUE Lorcon_create(int argc, VALUE *argv, VALUE self) {
 
 	if (argc == 2) {
 		rb_scan_args(argc, argv, "2", &rbintf, &rbdriver);
-		intf = STR2CSTR(rbintf);
-		driver = STR2CSTR(rbdriver);
+		intf = StringValuePtr(rbintf);
+		driver = StringValuePtr(rbdriver);
 	} else {
 		rb_scan_args(argc, argv, "1", &rbintf);
-		intf = STR2CSTR(rbintf);
+		intf = StringValuePtr(rbintf);
 	}
 	
 	if (driver == NULL) {
@@ -151,7 +151,9 @@ static VALUE Lorcon_create(int argc, VALUE *argv, VALUE self) {
 	obj = Data_Make_Struct(cDevice, struct rldev, 0, Lorcon_free, rld);
 
 	rld->context = lorcon_create(intf, dri);
-	lorcon_set_timeout(rld->context, 100);
+	
+	// Obsolete: XXX
+	// lorcon_set_timeout(rld->context, 100);
 		
 	if (rld->context == NULL) {
 		rb_raise(rb_eRuntimeError,
@@ -348,10 +350,11 @@ static VALUE Lorcon_packet_get_data(VALUE self) {
 
 static VALUE Lorcon_packet_getdot3(VALUE self) {
 	struct rlpack *rlp;
-	Data_Get_Struct(self, struct rlpack, rlp);
 	u_char *pdata;
 	int len;
 	VALUE ret;
+	
+	Data_Get_Struct(self, struct rlpack, rlp);
 
 	if (rlp->packet->packet_data == NULL)
 		return Qnil;
