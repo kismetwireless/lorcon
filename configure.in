@@ -1,3 +1,5 @@
+AC_CONFIG_MACRO_DIR([m4])
+
 dnl Blah blah standard autoconf
 AC_INIT(Makefile.in)
 
@@ -201,39 +203,53 @@ fi # waitairpcap
 fi # cygwin
 
 
-havenetlink=no
+#havenetlink=no
 if test "$linux" = "yes"; then
-havenetlink=yes
-	AC_CHECK_HEADERS([asm/types.h netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h netlink/msg.h netlink/attr.h linux/nl80211.h linux/if_arp.h linux/wireless.h], 
-	AC_DEFINE(HAVE_NETLINKHEADERS, 1, Netlink headers are there), 
-	havenetlink=no)
+#havenetlink=yes
+#	AC_CHECK_HEADERS([asm/types.h netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h netlink/msg.h netlink/attr.h linux/nl80211.h linux/if_arp.h linux/wireless.h], 
+#	AC_DEFINE(HAVE_NETLINKHEADERS, 1, Netlink headers are there), 
+#	havenetlink=no)
 
+
+NLLIBS=""
+NLCFLAGS=""
+nlname=""
 
 #if test "$havenetlink" = "yes"; then
-#	AC_CHECK_LIB([nl], [nl_handle_alloc],
-#    AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library), havenetlink=no)
-#else
-#	AC_MSG_WARN(Missing libnl or libnl too old support will not be able to control mac80211 vaps)
-#fi
-
-if test "$havenetlink" = "yes"; then
+	PKG_CHECK_MODULES(libnl30, [libnl-3.0], libnl30=yes, libnl30=no)
+	PKG_CHECK_MODULES(libnlgenl30, [libnl-genl-3.0], libnlgenl30=yes, libnlgenl30=no)
 	PKG_CHECK_MODULES(libnl20, [libnl-2.0], libnl20=yes, libnl20=no)
 	PKG_CHECK_MODULES(libnl1, [libnl-1], libnl1=yes, libnl1=no)
-	if test "$libnl20" = "yes"; then
+
+	if test "$libnl30" = "yes" -a "$libnlgenl30" = "yes"; then
+		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+		AC_DEFINE(HAVE_LIBNL30, 1, libnl-3.0 netlink library)
+		AC_DEFINE(HAVE_LIBNL2PLUS, 1, libnl2 or higher)
+		nlname="libnl-3.0 libnl-genl-3.0"
+	elif test "$libnl20" = "yes"; then
 		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
 		AC_DEFINE(HAVE_LIBNL20, 1, libnl-2.0 netlink library)
-		NLLIBS="-lnl-genl -lnl"
+		AC_DEFINE(HAVE_LIBNL2PLUS, 1, libnl2 or higher)
+		nlname="libnl-2.0"
 	elif test "$libnl1" = "yes"; then
 		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
-		NLLIBS="-lnl"
+		nlname="libnl-1"
 	else
 		havenetlink="no"
 	fi
-fi
 
+	if test "$nlname" != ""; then
+		NLLIBS=`pkg-config --libs $nlname`
+		NLCFLAGS=`pkg-config --cflags $nlname`
+		havenetlink="yes"
+	fi
+#fi
+
+OLIBS="$LIBS"
+OCFL="$CPPFLAGS"
 if test "$havenetlink" = "yes"; then
-	OLIBS="$LIBS"
 	LIBS="$LIBS $NLLIBS"
+	CPPFLAGS="$CPPFLAGS $NLCFLAGS"
 	AC_MSG_CHECKING(For mac80211 support in netlink library)
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#include <stdio.h>
@@ -261,6 +277,8 @@ if test "$havenetlink" = "yes"; then
 	AC_DEFINE(HAVE_LINUX_NETLINK, 1, Netlink works) 
 else
 	AC_MSG_RESULT(no libnl/libnl doesn't have mac80211 support, you need both for any drivers which require mac80211 support.)
+	LIBS="$OLIBS"
+	CPPFLAGS="$OCFL"
 fi
 
 fi

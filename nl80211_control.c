@@ -47,7 +47,7 @@
 #include "nl80211_control.h"
 
 // Libnl1->Libnl2 compatability mode since the API changed, cribbed from 'iw'
-#if !defined(HAVE_LIBNL20) && defined(HAVE_LINUX_NETLINK)
+#if !defined(HAVE_LIBNL2PLUS) && defined(HAVE_LINUX_NETLINK)
 #define nl_sock nl_handle
 
 static inline struct nl_handle *nl_socket_alloc(void) {
