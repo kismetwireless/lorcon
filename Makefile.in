@@ -10,6 +10,7 @@ top_builddir = $(HOME)
 
 prefix = @prefix@
 exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
 ETC	= ${DESTDIR}@sysconfdir@
 BIN	= ${DESTDIR}@bindir@
 DATAROOT = ${DESTDIR}@datarootdir@
