@@ -132,7 +132,7 @@ struct lorcon_dot11_extra {
 	/* Note: these are pointers to the data segment, NOT allocated */
 	const u_char *source_mac, *dest_mac, *bssid_mac, *other_mac;
 
-	unsigned int from_ds, to_ds, protected, fragmented, retry;
+	unsigned int from_ds, to_ds, frame_protected, fragmented, retry;
 
 	unsigned int qos, sequence, duration, fragment;
 

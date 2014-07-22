@@ -292,7 +292,7 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 
 		extra->fragmented = (packet->packet_header[1] & WLAN_FC_MOREFRAG);
 		extra->retry = (packet->packet_header[1] & WLAN_FC_RETRY);
-		extra->protected = (packet->packet_header[1] & WLAN_FC_ISWEP);
+		extra->frame_protected = (packet->packet_header[1] & WLAN_FC_ISWEP);
 
 		pu16 = (uint16_t *) (packet->packet_header + 2);
 		extra->duration = lorcon_le16(*pu16);
