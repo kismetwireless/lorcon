@@ -210,6 +210,10 @@ if test "$linux" = "yes"; then
 #	AC_DEFINE(HAVE_NETLINKHEADERS, 1, Netlink headers are there), 
 #	havenetlink=no)
 
+AC_CHECK_PROG(havepkgconfig, [pkg-config], yes, no)
+if test "$havepkgconfig" = "no"; then
+  AC_MSG_ERROR(Missing pkg-config will lead to multiple other checks failing)
+fi
 
 NLLIBS=""
 NLCFLAGS=""
