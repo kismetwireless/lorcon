@@ -70,6 +70,7 @@ int file_sendbytes(lorcon_t *context, int length, u_char *bytes) {
 
 int drv_file_init(lorcon_t *context) {
 	context->openmon_cb = file_openmon_cb;
+	context->openinjmon_cb = file_openmon_cb;
 
 	return 1;
 }
