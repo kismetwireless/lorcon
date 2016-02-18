@@ -139,9 +139,9 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	memset(context, 0, sizeof(lorcon_t));
 
 	snprintf(context->drivername, 32, "%s", driver->name);
-	snprintf(context->ifname, MAX_IFNAME_LEN, "%s", interface);
+    context->ifname = strdup(interface);
 
-	context->vapname[0] = 0;
+    context->vapname = NULL;
 
 	context->pcap = NULL;
 	context->inject_fd = context->ioctl_fd = context->capture_fd = -1;
@@ -185,6 +185,11 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 void lorcon_free(lorcon_t *context) {
 	if (context->close_cb != NULL) 
 		(*(context->close_cb))(context);
+
+    free(context->ifname);
+
+    if (context->vapname != NULL)
+        free(context->vapname);
 
 	free(context);
 }
@@ -268,7 +273,9 @@ int lorcon_ifdown(lorcon_t *context) {
 }
 
 void lorcon_set_vap(lorcon_t *context, const char *vap) {
-	snprintf(context->vapname, MAX_IFNAME_LEN, "%s", vap);
+    if (context->vapname != NULL)
+        free(context->vapname);
+    context->vapname = strdup(vap);
 }
 
 const char *lorcon_get_vap(lorcon_t *context) {

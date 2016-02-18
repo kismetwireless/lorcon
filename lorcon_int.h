@@ -50,8 +50,8 @@ typedef struct lorcon_wep lorcon_wep_t;
 struct lorcon {
 	char drivername[32];
 
-	char ifname[MAX_IFNAME_LEN];
-	char vapname[MAX_IFNAME_LEN];
+	char *ifname;
+	char *vapname;
 
 	pcap_t *pcap;
 
