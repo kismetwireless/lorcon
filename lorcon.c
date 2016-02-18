@@ -33,6 +33,7 @@
 #include "drv_mac80211.h"
 #include "drv_madwifing.h"
 #include "drv_tuntap.h"
+#include "drv_file.h"
 
 const char *lorcon_get_error(lorcon_t *context) {
 	return context->errstr;
@@ -51,6 +52,10 @@ lorcon_driver_t *lorcon_list_drivers() {
 
 #ifdef USE_DRV_MADWIFING
 	drv_head = drv_madwifing_listdriver(drv_head);
+#endif
+
+#ifdef USE_DRV_FILE
+    drv_head = drv_file_listdriver(drv_head);
 #endif
 
 	return drv_head;
