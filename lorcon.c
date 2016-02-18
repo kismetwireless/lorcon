@@ -242,6 +242,26 @@ int lorcon_open_injmon(lorcon_t *context) {
 	return (*(context->openinjmon_cb))(context);
 }
 
+int lorcon_ifup(lorcon_t *context) {
+	if (context->ifconfig_cb == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "Driver %s does not support interface control", context->drivername);
+		return LORCON_ENOTSUPP;
+	}
+
+	return (*(context->ifconfig_cb))(context, 1);
+}
+
+int lorcon_ifdown(lorcon_t *context) {
+	if (context->ifconfig_cb == NULL) {
+		snprintf(context->errstr, LORCON_STATUS_MAX,
+				 "Driver %s does not support interface control", context->drivername);
+		return LORCON_ENOTSUPP;
+	}
+
+	return (*(context->ifconfig_cb))(context, 0);
+}
+
 void lorcon_set_vap(lorcon_t *context, const char *vap) {
 	snprintf(context->vapname, MAX_IFNAME_LEN, "%s", vap);
 }

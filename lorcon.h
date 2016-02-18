@@ -88,6 +88,10 @@ int lorcon_open_monitor(lorcon_t *context);
 /* Open an interface in inject+monitor mode */
 int lorcon_open_injmon(lorcon_t *context);
 
+/* Control interface state */
+int lorcon_ifup(lorcon_t *context);
+int lorcon_ifdown(lorcon_t *context);
+
 /* Set the vap (if we use VAPs and we want to override default */
 void lorcon_set_vap(lorcon_t *context, const char *vap);
 /* Get the VAP we're using (if we use VAPs) */

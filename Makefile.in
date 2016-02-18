@@ -31,7 +31,7 @@ DEPEND = .depend
 
 LIBOBJ = ifcontrol_linux.lo iwcontrol.lo madwifing_control.lo nl80211_control.lo \
 		 lorcon_packet.lo lorcon_packasm.lo lorcon_forge.lo \
-		 drv_mac80211.lo drv_tuntap.lo drv_madwifing.lo \
+		 drv_mac80211.lo drv_tuntap.lo drv_madwifing.lo drv_file.lo \
 		 lorcon.lo 
 LIBOUT = liborcon2.la
 

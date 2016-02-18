@@ -286,6 +286,10 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 	return ret;
 }
 
+int mac80211_ifconfig_cb(lorcon_t *context, int up) {
+	return ifconfig_ifupdown(context->vapname, context->errstr, up);
+}
+
 int drv_mac80211_init(lorcon_t *context) {
 	struct mac80211_lorcon *extras = 
 		(struct mac80211_lorcon *) malloc(sizeof(struct mac80211_lorcon));
@@ -295,6 +299,8 @@ int drv_mac80211_init(lorcon_t *context) {
 	context->openinject_cb = mac80211_openmon_cb;
 	context->openmon_cb = mac80211_openmon_cb;
 	context->openinjmon_cb = mac80211_openmon_cb;
+
+	context->ifconfig_cb = mac80211_ifconfig_cb;
 
 	context->sendpacket_cb = mac80211_sendpacket;
 

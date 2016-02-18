@@ -82,6 +82,8 @@ struct lorcon {
 	int (*openmon_cb)(lorcon_t *context);
 	int (*openinjmon_cb)(lorcon_t *context);
 
+	int (*ifconfig_cb)(lorcon_t *context, int state);
+
 	int (*setchan_cb)(lorcon_t *context, int chan);
 	int (*getchan_cb)(lorcon_t *context);
 
