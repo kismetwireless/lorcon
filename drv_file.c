@@ -36,7 +36,6 @@
 
 /* Monitor, inject, and injmon are all the same method, open a new vap */
 int file_openmon_cb(lorcon_t *context) {
-	char *parent;
 	char pcaperr[PCAP_ERRBUF_SIZE];
 	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
 	short flags;
@@ -68,6 +67,15 @@ int file_sendbytes(lorcon_t *context, int length, u_char *bytes) {
     return -1;
 }
 
+int drv_file_probe(const char *interface) {
+    struct stat buf;
+
+    if (stat(interface, &buf) == 0) 
+        return 1;
+
+	return 0;
+}
+
 int drv_file_init(lorcon_t *context) {
 	context->openmon_cb = file_openmon_cb;
 	context->openinjmon_cb = file_openmon_cb;
@@ -81,7 +89,7 @@ lorcon_driver_t *drv_file_listdriver(lorcon_driver_t *head) {
 	d->name = strdup("file");
 	d->details = strdup("PCAP file source");
 	d->init_func = drv_file_init;
-	d->probe_func = NULL;
+	d->probe_func = drv_file_probe;
 
 	d->next = head;
 
