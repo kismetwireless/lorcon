@@ -565,13 +565,18 @@ static int
 PyLorcon2_Context_init(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
 {
     lorcon_driver_t *driver;
-    static char *kwlist[] = {"iface", NULL};
-    char *iface;
+    static char *kwlist[] = {"iface", "driver", NULL};
+    char *iface = NULL, *drivername = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &iface))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &iface, &drivername))
         return -1;
 
-    driver = lorcon_auto_driver(iface);
+    if (drivername == NULL) {
+        driver = lorcon_auto_driver(iface);
+    } else {
+        driver = lorcon_find_driver(drivername);
+    }
+
     if (!driver) {
         PyErr_SetString(Lorcon2Exception, "Unable to get driver");
         return -1;

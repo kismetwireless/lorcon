@@ -4,7 +4,7 @@ import sys
 import PyLorcon2
 import pprint
 
-lorcon = PyLorcon2.Context("./test.pcap")
+lorcon = PyLorcon2.Context("./test.pcap", driver="file")
 
 lorcon.open_injmon()
 
