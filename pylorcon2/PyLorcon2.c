@@ -219,11 +219,11 @@ PyDoc_STRVAR(PyLorcon2Packet_get_dot11_length__doc__,
 static PyObject*
 PyLorcon2_Packet_get_dot11_length(PyLorcon2_Packet *self);
 
-PyDoc_STRVAR(PyLorcon2Packet_get_data_length__doc__, 
-    "get_data_length() -> integer\n\n"
+PyDoc_STRVAR(PyLorcon2Packet_get_payload_length__doc__, 
+    "get_payload_length() -> integer\n\n"
     "Return the packet record data component length");
 static PyObject*
-PyLorcon2_Packet_get_data_length(PyLorcon2_Packet *self);
+PyLorcon2_Packet_get_payload_length(PyLorcon2_Packet *self);
 
 PyDoc_STRVAR(PyLorcon2Packet_get_packet__doc__, 
     "get_packet() -> array\n\n"
@@ -270,7 +270,7 @@ static PyMethodDef PyLorcon2_Packet_Methods[] =
     {"get_time_usec", PyLorcon2_Packet_get_time_usec, METH_NOARGS, PyLorcon2Packet_get_time_usec__doc__},
     {"get_length", PyLorcon2_Packet_get_length, METH_NOARGS, PyLorcon2Packet_get_length__doc__},
     {"get_dot11_length", PyLorcon2_Packet_get_dot11_length, METH_NOARGS, PyLorcon2Packet_get_dot11_length__doc__},
-    {"get_data_length", PyLorcon2_Packet_get_data_length, METH_NOARGS, PyLorcon2Packet_get_data_length__doc__},
+    {"get_payload_length", PyLorcon2_Packet_get_payload_length, METH_NOARGS, PyLorcon2Packet_get_payload_length__doc__},
     {"get_packet", PyLorcon2_Packet_get_packet, METH_NOARGS, PyLorcon2Packet_get_packet__doc__},
     {"get_dot11", PyLorcon2_Packet_get_dot11, METH_NOARGS, PyLorcon2Packet_get_dot11__doc__},
     {"get_data_payload", PyLorcon2_Packet_get_data_payload, METH_NOARGS, PyLorcon2Packet_get_data_payload__doc__},
@@ -962,7 +962,7 @@ PyLorcon2_Packet_get_dot11_length(PyLorcon2_Packet *self)
 }
 
 static PyObject*
-PyLorcon2_Packet_get_data_length(PyLorcon2_Packet *self)
+PyLorcon2_Packet_get_payload_length(PyLorcon2_Packet *self)
 {
     long int length;
     if (self->packet == NULL) {

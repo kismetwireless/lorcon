@@ -10,7 +10,7 @@ lorcon.open_injmon()
 
 while 1:
     p = lorcon.get_next()
-    print "Got packet, len %d dot11 len %d data len %d" % (p.get_length(), p.get_dot11_length(), p.get_data_length())
+    print "Got packet, len %d dot11 len %d data len %d" % (p.get_length(), p.get_dot11_length(), p.get_payload_length())
     b = p.get_packet()
 
     pprint.pprint(b)
