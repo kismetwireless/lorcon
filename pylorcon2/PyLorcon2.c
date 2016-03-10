@@ -181,6 +181,12 @@ PyDoc_STRVAR(PyLorcon2_Context_get_next__doc__,
 static PyObject *
 PyLorcon2_Context_get_next(PyLorcon2_Context *self);
 
+PyDoc_STRVAR(PyLorcon2_Context_set_filter__doc__, 
+    "set_filter(object) -> integer\n\n"
+    "Set a pcap BPF filter");
+static PyObject*
+PyLorcon2_Context_set_filter(PyLorcon2_Context *self, PyObject *args, PyObject *kwds);
+
 /*
     ###########################################################################
     
@@ -339,6 +345,7 @@ static PyMethodDef PyLorcon2_Context_Methods[] =
     {"get_error",       (PyCFunction)PyLorcon2_Context_get_error,       METH_NOARGS,  PyLorcon2_Context_get_error__doc__},
     {"get_capiface",    (PyCFunction)PyLorcon2_Context_get_capiface,    METH_NOARGS,  PyLorcon2_Context_get_capiface__doc__},
     {"send_bytes",      (PyCFunction)PyLorcon2_Context_send_bytes,      METH_VARARGS, PyLorcon2_Context_send_bytes__doc__},
+    {"set_filter",      (PyCFunction)PyLorcon2_Context_set_filter,      METH_VARARGS, PyLorcon2_Context_set_filter__doc__},
     {"set_timeout",     (PyCFunction)PyLorcon2_Context_set_timeout,
                         METH_VARARGS | METH_KEYWORDS, PyLorcon2_Context_set_timeout__doc__},
     {"get_timeout",     (PyCFunction)PyLorcon2_Context_get_timeout,     METH_NOARGS,  PyLorcon2_Context_get_timeout__doc__},
@@ -686,6 +693,42 @@ PyLorcon2_Context_send_bytes(PyLorcon2_Context *self, PyObject *args, PyObject *
     Py_DECREF(pckt_string);
     
     return PyInt_FromLong(sent);
+}
+
+static PyObject*
+PyLorcon2_Context_set_filter(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
+{
+    char *filter_buffer;
+    char *filter_size;
+
+    PyObject *filter, *filter_string;
+    int ret;
+
+    if (!PyArg_ParseTuple(args, "O", &filter))
+        return NULL;
+   
+    filter_string = PyObject_Str(filter);
+    if (!filter_string) {
+        PyErr_SetString(PyExc_ValueError, "Failed to get string filter");
+        return NULL;
+    }
+
+    if (PyString_AsStringAndSize(filter_string, &filter_buffer, &filter_size)) {
+        Py_DECREF(filter_string);
+        return NULL;
+    }
+
+    ret = lorcon_set_filter(self->context, filter_buffer);
+
+    if (ret < 0) {
+        PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
+        Py_DECREF(filter_string);
+        return NULL;
+    }
+    
+    Py_DECREF(filter_string);
+    
+    return PyInt_FromLong(ret);
 }
 
 static PyObject*
