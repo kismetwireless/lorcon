@@ -25,11 +25,17 @@
 #define __PYLORCON2__
 
 static PyObject *Lorcon2Exception;
+static PyObject *Lorcon2PacketException;
 
 typedef struct {
   PyObject_HEAD
   struct lorcon *context;
   char monitored;
 } PyLorcon2_Context;
+
+typedef struct {
+    PyObject_HEAD
+    struct lorcon_packet *packet;
+} PyLorcon2_Packet;
 
 #endif /* __PYLORCON2__ */
