@@ -194,4 +194,13 @@ lorcon_dot11_extra_t *lorcon_packet_get_dot11_extra(lorcon_packet_t *packet);
  * */
 lorcon_dot3_extra_t *lorcon_packet_get_dot3_extra(lorcon_packet_t *packet);
 
+/* Get the source mac, or null */
+const u_char *lorcon_packet_get_source_mac(lorcon_packet_t *packet);
+
+/* Get the destination mac, or null */
+const u_char *lorcon_packet_get_dest_mac(lorcon_packet_t *packet);
+
+/* Get the bssid, or null */
+const u_char *locon_packet_get_bssid_mac(lorcon_packet_t *packet);
+
 #endif

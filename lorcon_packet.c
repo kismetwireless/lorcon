@@ -216,8 +216,17 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 	u_int16_t *pu16, eu16, fcs = 0;
 	u_int8_t rt_wr_flags;
 	struct lorcon_dot11_extra *extra;
+    struct lorcon_dot3_extra *dot3extra;
 
-	if (packet->dlt == DLT_PRISM_HEADER) {
+    if (packet->dlt == DLT_EN10MB && packet->length > 14) {
+        // No header
+        packet->length_header = 0;
+        packet->packet_header = packet->packet_raw;
+
+        // All data
+        packet->length_data = packet->length - 14;
+        packet->packet_data = packet->packet_raw + 14;
+    } else if (packet->dlt == DLT_PRISM_HEADER) {
 		if (packet->length > sizeof(avs_80211_1_header) &&
 			ntohl(avshdr->version) == 0x80211001) {
 			/* avs */
@@ -275,6 +284,22 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 	} else {
 		return 0;
 	}
+
+    // Process EN10MB packets
+    if (innerdlt == DLT_EN10MB && packet->length > 14) {
+        dot3extra = 
+            (struct lorcon_dot3_extra *) malloc(sizeof(struct lorcon_dot3_extra));
+        memset(dot3extra, 0, sizeof(struct lorcon_dot3_extra));
+
+        packet->extra_info = dot3extra;
+        packet->extra_type = LORCON_PACKET_EXTRA_8023;
+
+        dot3extra->source_mac = packet->packet_raw;
+        dot3extra->dest_mac = packet->packet_raw + 6;
+
+		pu16 = (uint16_t *) (packet->packet_header + 12);
+		dot3extra->type = lorcon_le16(*pu16);
+    }
 
 	/* try to decode the dot11 inner data */
 	if (innerdlt == DLT_IEEE802_11 && packet->packet_header != NULL &&
@@ -726,5 +751,41 @@ lorcon_dot3_extra_t *lorcon_packet_get_dot3_extra(lorcon_packet_t *packet) {
         return NULL;
 
     return (lorcon_dot3_extra_t *) packet->extra_info;
+}
+
+const u_char *lorcon_packet_get_source_mac(lorcon_packet_t *packet) {
+    lorcon_dot11_extra_t *d11extra = NULL;
+    lorcon_dot3_extra_t *d3extra = NULL;
+
+    if ((d11extra = lorcon_packet_get_dot11_extra(packet)) != NULL) {
+        return d11extra->source_mac;
+    } else if ((d3extra = lorcon_packet_get_dot3_extra(packet)) != NULL) {
+        return d3extra->source_mac;
+    }
+
+    return NULL;
+}
+
+const u_char *lorcon_packet_get_dest_mac(lorcon_packet_t *packet) {
+    lorcon_dot11_extra_t *d11extra = NULL;
+    lorcon_dot3_extra_t *d3extra = NULL;
+
+    if ((d11extra = lorcon_packet_get_dot11_extra(packet)) != NULL) {
+        return d11extra->dest_mac;
+    } else if ((d3extra = lorcon_packet_get_dot3_extra(packet)) != NULL) {
+        return d3extra->dest_mac;
+    }
+
+    return NULL;
+}
+
+const u_char *lorcon_packet_get_bssid_mac(lorcon_packet_t *packet) {
+    lorcon_dot11_extra_t *d11extra = NULL;
+
+    if ((d11extra = lorcon_packet_get_dot11_extra(packet)) != NULL) {
+        return d11extra->bssid_mac;
+    } 
+
+    return NULL;
 }
 
