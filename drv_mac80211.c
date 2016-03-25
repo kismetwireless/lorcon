@@ -64,14 +64,16 @@ int mac80211_openmon_cb(lorcon_t *context) {
 	char *parent;
 	char pcaperr[PCAP_ERRBUF_SIZE];
 	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
-	short flags;
+	/* short flags; */
 	struct ifreq if_req;
 	struct sockaddr_ll sa_ll;
 	int optval;
 	socklen_t optlen;
+    char vifname[MAX_IFNAME_LEN];
 
-	if (strlen(context->vapname) == 0) {
-		snprintf(context->vapname, MAX_IFNAME_LEN, "%smon", context->ifname);
+    if (context->vapname == NULL) {
+        snprintf(vifname, MAX_IFNAME_LEN, "%smon", context->ifname);
+        context->vapname = strdup(vifname);
 	}
 
 	if ((parent = nl80211_find_parent(context->vapname)) == NULL) {

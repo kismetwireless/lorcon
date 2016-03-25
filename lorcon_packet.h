@@ -139,6 +139,12 @@ struct lorcon_dot11_extra {
 	uint16_t capability;
 };
 
+/* 802.3 extra info */
+struct lorcon_dot3_extra {
+    const u_char *source_mac, *dest_mac;
+    unsigned int type;
+};
+
 void lorcon_packet_free(lorcon_packet_t *packet);
 int lorcon_packet_decode(lorcon_packet_t *packet);
 

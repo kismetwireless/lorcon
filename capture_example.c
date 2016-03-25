@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <lorcon.h>
+#include <lorcon2/lorcon.h>
 #include <getopt.h>
 #include <unistd.h>
 #include <stdlib.h>

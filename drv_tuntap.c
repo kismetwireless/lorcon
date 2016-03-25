@@ -53,10 +53,8 @@
 
 /* Monitor, inject, and injmon are all the same method, open a new vap */
 int tuntap_openmon_cb(lorcon_t *context) {
-	char *parent;
 	char pcaperr[PCAP_ERRBUF_SIZE];
 	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
-	short flags;
 	struct ifreq if_req;
 	struct sockaddr_ll sa_ll;
 

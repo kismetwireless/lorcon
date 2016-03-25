@@ -66,6 +66,10 @@
 #define DLT_PPI					192 /* cace PPI */
 #endif
 
+#ifndef DLT_EN10MB
+#define DLT_EN10MB              1
+#endif
+
 #ifndef IEEE80211_RADIOTAP_F_FCS
 #define IEEE80211_RADIOTAP_F_FCS        0x10    /* frame includes FCS */
 #endif
