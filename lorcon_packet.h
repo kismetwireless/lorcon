@@ -24,6 +24,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <stdint.h>
 
 struct lorcon;
 struct pcap_pkthdr;
@@ -121,6 +122,7 @@ typedef struct lorcon_packet lorcon_packet_t;
 
 #define LORCON_PACKET_EXTRA_NONE		0
 #define LORCON_PACKET_EXTRA_80211		1
+#define LORCON_PACKET_EXTRA_8023        2
 
 /* 802.11 extra info */
 struct lorcon_dot11_extra {
@@ -138,12 +140,14 @@ struct lorcon_dot11_extra {
 
 	uint16_t capability;
 };
+typedef struct lorcon_dot11_extra lorcon_dot11_extra_t;
 
 /* 802.3 extra info */
 struct lorcon_dot3_extra {
     const u_char *source_mac, *dest_mac;
     unsigned int type;
 };
+typedef struct lorcon_dot3_extra lorcon_dot3_extra_t;
 
 void lorcon_packet_free(lorcon_packet_t *packet);
 int lorcon_packet_decode(lorcon_packet_t *packet);
@@ -179,5 +183,15 @@ int lorcon_packet_to_dot3(lorcon_packet_t *packet, u_char **data);
  * packet assemblers which don't speak dot11 */
 lorcon_packet_t *lorcon_packet_from_dot3(u_char *bssid, int dot11_direction,
 										 u_char *data, int length);
+
+/* Get dot11 extra
+ * Returns NULL if no dot11 extra data
+ * */
+lorcon_dot11_extra_t *lorcon_packet_get_dot11_extra(lorcon_packet_t *packet);
+
+/* Get dot3 extra 
+ * Returns NULL if no dot3 extra data
+ * */
+lorcon_dot3_extra_t *lorcon_packet_get_dot3_extra(lorcon_packet_t *packet);
 
 #endif

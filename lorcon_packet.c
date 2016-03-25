@@ -27,7 +27,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <string.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
 
@@ -707,5 +706,25 @@ lorcon_packet_t *lorcon_packet_from_dot3(u_char *bssid, int dot11_direction,
 	ret->lcpa = lcpa_append_copy(ret->lcpa, "DATA", length - offt, data + offt);
 
 	return ret;
+}
+
+lorcon_dot11_extra_t *lorcon_packet_get_dot11_extra(lorcon_packet_t *packet) {
+    if (packet->extra_info == NULL)
+        return NULL;
+
+    if (packet->extra_type != LORCON_PACKET_EXTRA_80211)
+        return NULL;
+
+    return (lorcon_dot11_extra_t *) packet->extra_info;
+}
+
+lorcon_dot3_extra_t *lorcon_packet_get_dot3_extra(lorcon_packet_t *packet) {
+    if (packet->extra_info == NULL)
+        return NULL;
+
+    if (packet->extra_type != LORCON_PACKET_EXTRA_8023)
+        return NULL;
+
+    return (lorcon_dot3_extra_t *) packet->extra_info;
 }
 
