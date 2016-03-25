@@ -35,6 +35,8 @@
 #ifndef __PACKET_ASSEMBLY_H__
 #define __PACKET_ASSEMBLY_H__
 
+#include <stdint.h>
+
 /*
  * Basically a big linked list which gets frozen into a static
  * uint8_t for transmission.
@@ -74,7 +76,8 @@ struct lcpa_metapack *lcpa_init();
  *
  * The new component is returned.
  */
-struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, char *in_type, 
+struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, 
+                                       const char *in_type, 
 									   int in_len, uint8_t *in_data);
 
 /* Append a data item to a list.  This is NOT copied, will NOT be freed when
@@ -85,7 +88,8 @@ struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, char *in_t
  *
  * The new component is returned.
  */
-struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, 
+                                  const char *in_type,
 								  int in_len, uint8_t *in_data);
 
 /* Insert a component into the packet.  This copied data will be freed when the list
@@ -96,7 +100,8 @@ struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, char *in_type,
  *
  * The new component is returned.
  */
-struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, 
+                                       const char *in_type,
 									   int in_len, uint8_t *in_data);
 
 /* Insert a component into the packet.  This data is NOT copied and will NOT
@@ -107,7 +112,8 @@ struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, char *in_t
  *
  * The new component is returned.
  */
-struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, 
+                                  const char *in_type,
 								  int in_len, uint8_t *in_data);
 
 /* Find a component by name.  Can be used for iterative searching by passing
@@ -115,7 +121,8 @@ struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, char *in_type,
  *
  * If no value is found, NULL is returned
  */
-struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, char *in_type);
+struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, 
+                                     const char *in_type);
 
 /* Replace a component in the packet.  The data is copied and will be freed when the
  * packet list is freed.  If the packet being replaced contains copied data, it 
@@ -125,7 +132,8 @@ struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, char *in_typ
  * component data must be treated as invalid if the original component data 
  * was copied.
  */
-void lcpa_replace_copy(struct lcpa_metapack *in_pack, char *in_type, 
+void lcpa_replace_copy(struct lcpa_metapack *in_pack, 
+                       const char *in_type, 
 					   int in_len, uint8_t *in_data);
 
 /* Replace a component in the packet.  The data is NOT copied and will NOT be freed
@@ -136,7 +144,7 @@ void lcpa_replace_copy(struct lcpa_metapack *in_pack, char *in_type,
  * component data bust me treated as invalid if the original component data
  * was copied
  */
-void lcpa_replace(struct lcpa_metapack *in_pack, char *in_type,
+void lcpa_replace(struct lcpa_metapack *in_pack, const char *in_type,
 				  int in_len, uint8_t *in_data);
 
 /* Free a metapacket list.  

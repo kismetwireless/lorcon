@@ -50,7 +50,8 @@ struct lcpa_metapack *lcpa_init() {
 	return c;
 }
 
-struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, 
+                                       const char *in_type,
 									   int in_len, uint8_t *in_data) {
 	struct lcpa_metapack *c = 
 		(struct lcpa_metapack *) malloc(sizeof(struct lcpa_metapack));
@@ -75,7 +76,8 @@ struct lcpa_metapack *lcpa_append_copy(struct lcpa_metapack *in_pack, char *in_t
 	return c;
 }
 
-struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, 
+                                  const char *in_type,
 								  int in_len, uint8_t *in_data) {
 	struct lcpa_metapack *c = 
 		(struct lcpa_metapack *) malloc(sizeof(struct lcpa_metapack));
@@ -98,7 +100,8 @@ struct lcpa_metapack *lcpa_append(struct lcpa_metapack *in_pack, char *in_type,
 	return c;
 }
 
-struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, 
+                                       const char *in_type,
 									   int in_len, uint8_t *in_data) {
 	struct lcpa_metapack *c = 
 		(struct lcpa_metapack *) malloc(sizeof(struct lcpa_metapack));
@@ -116,7 +119,8 @@ struct lcpa_metapack *lcpa_insert_copy(struct lcpa_metapack *in_pack, char *in_t
 	return c;
 }
 
-struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, char *in_type,
+struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, 
+                                const char *in_type,
 								int in_len, uint8_t *in_data) {
 	struct lcpa_metapack *c = 
 		(struct lcpa_metapack *) malloc(sizeof(struct lcpa_metapack));
@@ -132,7 +136,8 @@ struct lcpa_metapack *lcpa_insert(struct lcpa_metapack *in_pack, char *in_type,
 	return c;
 }
 
-struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, char *in_type) {
+struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, 
+                                     const char *in_type) {
 	struct lcpa_metapack *i = NULL;
 
 	for (i = in_head; i != NULL; i = i->next) {
@@ -143,7 +148,8 @@ struct lcpa_metapack *lcpa_find_name(struct lcpa_metapack *in_head, char *in_typ
 	return NULL;
 }
 
-void lcpa_replace_copy(struct lcpa_metapack *in_pack, char *in_type,
+void lcpa_replace_copy(struct lcpa_metapack *in_pack, 
+                       const char *in_type,
 					   int in_len, uint8_t *in_data) {
 	if (in_pack->freedata) {
 		free(in_pack->data);
@@ -156,7 +162,7 @@ void lcpa_replace_copy(struct lcpa_metapack *in_pack, char *in_type,
 	snprintf(in_pack->type, 24, "%s", in_type);
 }
 
-void lcpa_replace(struct lcpa_metapack *in_pack, char *in_type,
+void lcpa_replace(struct lcpa_metapack *in_pack, const char *in_type,
 				  int in_len, uint8_t *in_data) {
 	if (in_pack->freedata) {
 		free(in_pack->data);
