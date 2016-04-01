@@ -203,4 +203,7 @@ const u_char *lorcon_packet_get_dest_mac(lorcon_packet_t *packet);
 /* Get the bssid, or null */
 const u_char *locon_packet_get_bssid_mac(lorcon_packet_t *packet);
 
+/* Get the LLC type if we can (dot3) */
+uint16_t lorcon_packet_get_llc_type(lorcon_packet_t *packet);
+
 #endif

@@ -789,3 +789,13 @@ const u_char *lorcon_packet_get_bssid_mac(lorcon_packet_t *packet) {
     return NULL;
 }
 
+uint16_t lorcon_packet_get_llc_type(lorcon_packet_t *packet) {
+    lorcon_dot3_extra_t *d3extra = NULL;
+
+    if ((d3extra = lorcon_packet_get_dot3_extra(packet)) != NULL) {
+        return d3extra->type;
+    } 
+
+    return 0;
+}
+
