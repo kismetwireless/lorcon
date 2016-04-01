@@ -298,7 +298,7 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
         dot3extra->dest_mac = packet->packet_raw + 6;
 
 		pu16 = (uint16_t *) (packet->packet_header + 12);
-		dot3extra->type = lorcon_le16(*pu16);
+		dot3extra->llc_type = lorcon_le16(*pu16);
     }
 
 	/* try to decode the dot11 inner data */
@@ -793,7 +793,7 @@ uint16_t lorcon_packet_get_llc_type(lorcon_packet_t *packet) {
     lorcon_dot3_extra_t *d3extra = NULL;
 
     if ((d3extra = lorcon_packet_get_dot3_extra(packet)) != NULL) {
-        return d3extra->type;
+        return d3extra->llc_type;
     } 
 
     return 0;

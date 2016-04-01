@@ -145,7 +145,7 @@ typedef struct lorcon_dot11_extra lorcon_dot11_extra_t;
 /* 802.3 extra info */
 struct lorcon_dot3_extra {
     const u_char *source_mac, *dest_mac;
-    unsigned int type;
+    unsigned int llc_type;
 };
 typedef struct lorcon_dot3_extra lorcon_dot3_extra_t;
 
