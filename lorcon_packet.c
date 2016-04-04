@@ -227,13 +227,13 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
         packet->length_data = packet->length - 14;
         packet->packet_data = packet->packet_raw + 14;
     } else if (packet->dlt == DLT_PRISM_HEADER) {
-		if (packet->length > sizeof(avs_80211_1_header) &&
+		if (packet->length > (int) sizeof(avs_80211_1_header) &&
 			ntohl(avshdr->version) == 0x80211001) {
 			/* avs */
-			if (ntohl(avshdr->length) < packet->length) {
+			if ((int) ntohl(avshdr->length) < packet->length) {
 				packet->packet_header = &(packet->packet_raw[ntohl(avshdr->length)]);
 				packet->length_header = packet->length - ntohl(avshdr->length);
-			} else if (packet->length > sizeof(wlan_ng_prism2_header)) {
+			} else if (packet->length > (int) sizeof(wlan_ng_prism2_header)) {
 				/* prism2 */
 				packet->packet_header = 
 					&(packet->packet_raw[sizeof(wlan_ng_prism2_header)]);
@@ -243,7 +243,7 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 
 		innerdlt = DLT_IEEE802_11;
 	} else if (packet->dlt == DLT_PPI) {
-		if (packet->length > sizeof(ppi_packet_header) &&
+		if (packet->length > (int) sizeof(ppi_packet_header) &&
 			lorcon_le16(ppihdr->pph_len) < packet->length) {
 			packet->packet_header = &(packet->packet_raw[lorcon_le16(ppihdr->pph_len)]);
 			packet->length_header = packet->length - lorcon_le16(ppihdr->pph_len);
@@ -251,7 +251,7 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 			innerdlt = lorcon_le32(ppihdr->pph_dlt);
 		}
 	} else if (packet->dlt == DLT_IEEE802_11_RADIO) {
-		if (packet->length > sizeof(radiotap_header) &&
+		if (packet->length > (int) sizeof(radiotap_header) &&
 			lorcon_le16(rtaphdr->it_len) < packet->length) {
 			packet->packet_header = &(packet->packet_raw[lorcon_le16(rtaphdr->it_len)]);
 			packet->length_header = packet->length - lorcon_le16(rtaphdr->it_len);
