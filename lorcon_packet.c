@@ -294,8 +294,8 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
         packet->extra_info = dot3extra;
         packet->extra_type = LORCON_PACKET_EXTRA_8023;
 
-        dot3extra->source_mac = packet->packet_raw;
-        dot3extra->dest_mac = packet->packet_raw + 6;
+        dot3extra->dest_mac = packet->packet_raw;
+        dot3extra->source_mac = packet->packet_raw + 6;
 
 		pu16 = (uint16_t *) (packet->packet_header + 12);
 		dot3extra->llc_type = lorcon_le16(*pu16);
