@@ -243,6 +243,12 @@ PyDoc_STRVAR(PyLorcon2Packet_get_data_payload__doc__,
 static PyObject*
 PyLorcon2_Packet_get_data_payload(PyLorcon2_Packet *self);
 
+PyDoc_STRVAR(PyLorcon2Packet_get_interface__doc__,
+    "get_interface() -> PyLorcon2.Context\n\n"
+    "Return the context which saw this packet");
+static PyObject*
+PyLorcon2_Packet_get_interface(PyLorcon2_Packet *self);
+
 /*
     ###########################################################################
     
@@ -266,14 +272,24 @@ PyLorcon2_Packet_init(PyLorcon2_Packet *self, PyObject *args, PyObject *kwds);
 */
 static PyMethodDef PyLorcon2_Packet_Methods[] =
 {
-    {"get_time_sec", PyLorcon2_Packet_get_time_sec, METH_NOARGS, PyLorcon2Packet_get_time_sec__doc__},
-    {"get_time_usec", PyLorcon2_Packet_get_time_usec, METH_NOARGS, PyLorcon2Packet_get_time_usec__doc__},
-    {"get_length", PyLorcon2_Packet_get_length, METH_NOARGS, PyLorcon2Packet_get_length__doc__},
-    {"get_dot11_length", PyLorcon2_Packet_get_dot11_length, METH_NOARGS, PyLorcon2Packet_get_dot11_length__doc__},
-    {"get_payload_length", PyLorcon2_Packet_get_payload_length, METH_NOARGS, PyLorcon2Packet_get_payload_length__doc__},
-    {"get_packet", PyLorcon2_Packet_get_packet, METH_NOARGS, PyLorcon2Packet_get_packet__doc__},
-    {"get_dot11", PyLorcon2_Packet_get_dot11, METH_NOARGS, PyLorcon2Packet_get_dot11__doc__},
-    {"get_data_payload", PyLorcon2_Packet_get_data_payload, METH_NOARGS, PyLorcon2Packet_get_data_payload__doc__},
+    {"get_time_sec", (PyCFunction) PyLorcon2_Packet_get_time_sec, 
+        METH_NOARGS, PyLorcon2Packet_get_time_sec__doc__},
+    {"get_time_usec", (PyCFunction) PyLorcon2_Packet_get_time_usec, 
+        METH_NOARGS, PyLorcon2Packet_get_time_usec__doc__},
+    {"get_length", (PyCFunction) PyLorcon2_Packet_get_length, 
+        METH_NOARGS, PyLorcon2Packet_get_length__doc__},
+    {"get_dot11_length", (PyCFunction) PyLorcon2_Packet_get_dot11_length, 
+        METH_NOARGS, PyLorcon2Packet_get_dot11_length__doc__},
+    {"get_payload_length", (PyCFunction) PyLorcon2_Packet_get_payload_length, 
+        METH_NOARGS, PyLorcon2Packet_get_payload_length__doc__},
+    {"get_packet", (PyCFunction) PyLorcon2_Packet_get_packet, 
+        METH_NOARGS, PyLorcon2Packet_get_packet__doc__},
+    {"get_dot11", (PyCFunction) PyLorcon2_Packet_get_dot11, 
+        METH_NOARGS, PyLorcon2Packet_get_dot11__doc__},
+    {"get_data_payload", (PyCFunction) PyLorcon2_Packet_get_data_payload, 
+        METH_NOARGS, PyLorcon2Packet_get_data_payload__doc__},
+    {"get_interface", (PyCFunction) PyLorcon2_Packet_get_interface, 
+        METH_NOARGS, PyLorcon2Packet_get_interface__doc__},
     { NULL, NULL, 0, NULL }
 };
 
@@ -329,10 +345,14 @@ static PyTypeObject PyLorcon2_PacketType = {
 
 static PyMethodDef PyLorcon2Methods[] =
 {
-    {"get_version",  PyLorcon2_get_version,  METH_NOARGS,  PyLorcon2_get_version__doc__},
-    {"list_drivers", PyLorcon2_list_drivers, METH_NOARGS,  PyLorcon2_list_drivers__doc__},
-    {"find_driver",  PyLorcon2_find_driver,  METH_VARARGS, PyLorcon2_find_driver__doc__},
-    {"auto_driver",  PyLorcon2_auto_driver,  METH_VARARGS, PyLorcon2_auto_driver__doc__},
+    {"get_version",  PyLorcon2_get_version,  
+        METH_NOARGS,  PyLorcon2_get_version__doc__},
+    {"list_drivers", PyLorcon2_list_drivers, 
+        METH_NOARGS,  PyLorcon2_list_drivers__doc__},
+    {"find_driver",  PyLorcon2_find_driver,  
+        METH_VARARGS, PyLorcon2_find_driver__doc__},
+    {"auto_driver",  PyLorcon2_auto_driver,  
+        METH_VARARGS, PyLorcon2_auto_driver__doc__},
     {NULL, NULL, 0, NULL}
 };
 
@@ -568,8 +588,12 @@ PyLorcon2_Context_init(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
     static char *kwlist[] = {"iface", "driver", NULL};
     char *iface = NULL, *drivername = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &iface, &drivername))
-        return -1;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", 
+                kwlist, &iface, &drivername)) {
+        self->context = NULL;
+        self->monitored = 0;
+        return 0;
+    }
 
     if (drivername == NULL) {
         driver = lorcon_auto_driver(iface);
@@ -811,11 +835,6 @@ PyLorcon2_Context_get_channel(PyLorcon2_Context *self)
 {
     int channel;
 
-    if (!self->monitored) {
-        PyErr_SetString(PyExc_RuntimeError, "Context must be in monitor/injection-mode");
-        return NULL;
-    }
-
     channel = lorcon_get_channel(self->context);
     if (channel < 0) {
         PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
@@ -832,11 +851,6 @@ PyLorcon2_Context_get_hwmac(PyLorcon2_Context *self)
     uint8_t *mac;
     PyObject *ret;
 
-    if (!self->monitored) {
-        PyErr_SetString(PyExc_RuntimeError, "Context must be in monitor/injection-mode");
-        return NULL;
-    }
-
     r = lorcon_get_hwmac(self->context, &mac);
     if (r < 0) {
         PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
@@ -845,7 +859,8 @@ PyLorcon2_Context_get_hwmac(PyLorcon2_Context *self)
         Py_INCREF(Py_None);
         ret = Py_None;
     } else {
-        ret = Py_BuildValue("(i,i,i,i,i,i)", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        ret = Py_BuildValue("(i,i,i,i,i,i)", 
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         free(mac);
     }
 
@@ -1027,5 +1042,23 @@ PyLorcon2_Packet_get_data_payload(PyLorcon2_Packet *self) {
 
     return PyByteArray_FromStringAndSize(self->packet->packet_data, 
             self->packet->length_data);
+}
+
+static PyObject *
+PyLorcon2_Packet_get_interface(PyLorcon2_Packet *self) {
+    PyObject *arg_tuple, *obj;
+
+    if (self->packet == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Packet not built");
+        return NULL;
+    }
+
+    arg_tuple = PyTuple_New(0);
+
+    obj = PyObject_CallObject((PyObject *) &PyLorcon2_ContextType, arg_tuple);
+    ((PyLorcon2_Context *) obj)->context = lorcon_packet_get_interface(self->packet);
+
+    Py_DECREF(arg_tuple);
+
 }
 

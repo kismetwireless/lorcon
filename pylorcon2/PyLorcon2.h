@@ -21,6 +21,10 @@
     Author: Ezequiel Gutesman (gutes)  <egutesman@gmail.com>
 */
 
+#include <python2.7/Python.h>
+#include <lorcon2/lorcon.h>
+#include <lorcon2/lorcon_multi.h>
+
 #ifndef __PYLORCON2__
 #define __PYLORCON2__
 
@@ -37,5 +41,13 @@ typedef struct {
     PyObject_HEAD
     struct lorcon_packet *packet;
 } PyLorcon2_Packet;
+
+typedef struct {
+    PyObject_HEAD
+    struct lorcon_multi *multi;
+
+    PyObject *cb_func;
+    PyObject *cb_aux;
+} PyLorcon2_Multi;
 
 #endif /* __PYLORCON2__ */
