@@ -32,7 +32,7 @@ DEPEND = .depend
 LIBOBJ = ifcontrol_linux.lo iwcontrol.lo madwifing_control.lo nl80211_control.lo \
 		 lorcon_packet.lo lorcon_packasm.lo lorcon_forge.lo \
 		 drv_mac80211.lo drv_tuntap.lo drv_madwifing.lo drv_file.lo \
-		 lorcon.lo 
+		 lorcon.lo lorcon_multi.lo 
 LIBOUT = liborcon2.la
 
 TXTESTOBJ = tx.o
@@ -68,6 +68,7 @@ install:	$(LIBOUT)
 	install -m 644 lorcon_packet.h $(INCLUDE)/lorcon2/lorcon_packet.h
 	install -m 644 lorcon_packasm.h $(INCLUDE)/lorcon2/lorcon_packasm.h
 	install -m 644 lorcon_forge.h $(INCLUDE)/lorcon2/lorcon_forge.h
+	install -m 644 lorcon_multi.h $(INCLUDE)/lorcon2/lorcon_multi.h
 	install -m 644 ieee80211.h $(INCLUDE)/lorcon2/lorcon_ieee80211.h
 	install -d -m 755 $(MAN)/man3
 	install -o root -m 644 lorcon.3 $(MAN)/man3/lorcon.3
