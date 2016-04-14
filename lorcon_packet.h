@@ -117,6 +117,9 @@ struct lorcon_packet {
 	/* Additional info */
 	void *extra_info;
 	int extra_type;
+
+    /* Interface that generated this packet */
+    struct lorcon *interface;
 };
 typedef struct lorcon_packet lorcon_packet_t;
 
@@ -205,5 +208,8 @@ const u_char *locon_packet_get_bssid_mac(lorcon_packet_t *packet);
 
 /* Get the LLC type if we can (dot3) */
 uint16_t lorcon_packet_get_llc_type(lorcon_packet_t *packet);
+
+/* Get the interface */
+struct lorcon *lorcon_packet_get_interface(lorcon_packet_t *packet);
 
 #endif
