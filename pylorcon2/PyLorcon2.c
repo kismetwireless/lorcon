@@ -281,12 +281,20 @@ PyLorcon2_Multi_get_interfaces(PyLorcon2_Multi *self);
 
 PyDoc_STRVAR(PyLorcon2Multi_loop__doc__,
     "loop(count, callback) -> Integer\n\n"
-    "Loop on all interfaces, calling the callback function on each"
+    "Loop on all interfaces, calling the callback function on each "
     "packet.  Callbacks should be:\n"
     "def MultiCallback(packet)\n"
     "Processes `count' packets (0 for infinite)");
 static PyObject*
 PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args);
+
+PyDoc_STRVAR(PyLorcon2Multi_get_multi_ptr__doc__,
+    "get_multi_ptr() -> Capsule Object\n\n"
+    "Return a C pointer to the multicapture internal object.  This exists "
+    "solely to integrate with other native libraries via python native "
+    "glue and should not be called from Python code.");
+static PyObject*
+PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self);
 
 
 /*
@@ -394,6 +402,8 @@ static PyMethodDef PyLorcon2_Multi_Methods[] =
         METH_NOARGS, PyLorcon2Multi_get_interfaces__doc__ },
     {"loop", (PyCFunction) PyLorcon2_Multi_loop,
         METH_VARARGS, PyLorcon2Multi_loop__doc__ },
+    {"get_multi_ptr", (PyCFunction) PyLorcon2_Multi_get_multi_ptr,
+        METH_NOARGS, PyLorcon2Multi_get_multi_ptr__doc__ },
     { NULL, NULL, 0, NULL }
 };
 
@@ -1339,5 +1349,18 @@ static PyObject* PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args) {
     ret = lorcon_multi_loop(self->multi, num, pylorcon2_multi_handler, (void *) self);
 
     return PyInt_FromLong(ret);
+}
+
+static PyObject* PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self) {
+    PyObject *ptrcapsule;
+    
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    ptrcapsule = PyCapsule_New((void *) self->multi, "MULTI", NULL);
+
+    return ptrcapsule;
 }
 
