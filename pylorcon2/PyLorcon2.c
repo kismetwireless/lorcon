@@ -22,8 +22,10 @@
 */
 
 
-#include <Python.h>
+#include <python2.7/Python.h>
 #include <lorcon2/lorcon.h>
+#include <lorcon2/lorcon_packet.h>
+#include <lorcon2/lorcon_multi.h>
 #include "PyLorcon2.h"
 
 
@@ -243,6 +245,58 @@ PyDoc_STRVAR(PyLorcon2Packet_get_data_payload__doc__,
 static PyObject*
 PyLorcon2_Packet_get_data_payload(PyLorcon2_Packet *self);
 
+PyDoc_STRVAR(PyLorcon2Packet_get_interface__doc__,
+    "get_interface() -> PyLorcon2.Context\n\n"
+    "Return the context which saw this packet");
+static PyObject*
+PyLorcon2_Packet_get_interface(PyLorcon2_Packet *self);
+
+/* Multi-cap */
+static int PyLorcon2_Multi_init(PyLorcon2_Multi *self, PyObject *args, PyObject *kwds);
+static void PyLorcon2_Multi_dealloc(PyLorcon2_Multi *self);
+
+PyDoc_STRVAR(PyLorcon2Multi_get_error__doc__,
+    "get_error() -> String\n\n"
+    "Return last error");
+static PyObject*
+PyLorcon2_Multi_get_error(PyLorcon2_Multi *self);
+
+PyDoc_STRVAR(PyLorcon2Multi_add_interface__doc__,
+    "add_interface(Lorcon2.Context) -> None\n\n"
+    "Add an (opened!) lorcon2 interface to the multicapture");
+static PyObject*
+PyLorcon2_Multi_add_interface(PyLorcon2_Multi *self, PyObject *args);
+
+PyDoc_STRVAR(PyLorcon2Multi_del_interface__doc__,
+    "del_interface(Lorcon2.Context) -> None\n\n"
+    "Remove an interface from the multicapture");
+static PyObject*
+PyLorcon2_Multi_del_interface(PyLorcon2_Multi *self, PyObject *args);
+
+PyDoc_STRVAR(PyLorcon2Multi_get_interfaces__doc__,
+    "get_interfaces() -> vector<Lorcon2.Context>\n\n"
+    "Return a list of interfaces in the multicapture");
+static PyObject*
+PyLorcon2_Multi_get_interfaces(PyLorcon2_Multi *self);
+
+PyDoc_STRVAR(PyLorcon2Multi_loop__doc__,
+    "loop(count, callback) -> Integer\n\n"
+    "Loop on all interfaces, calling the callback function on each "
+    "packet.  Callbacks should be:\n"
+    "def MultiCallback(packet)\n"
+    "Processes `count' packets (0 for infinite)");
+static PyObject*
+PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args);
+
+PyDoc_STRVAR(PyLorcon2Multi_get_multi_ptr__doc__,
+    "get_multi_ptr() -> Capsule Object\n\n"
+    "Return a C pointer to the multicapture internal object.  This exists "
+    "solely to integrate with other native libraries via python native "
+    "glue and should not be called from Python code.");
+static PyObject*
+PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self);
+
+
 /*
     ###########################################################################
     
@@ -266,14 +320,24 @@ PyLorcon2_Packet_init(PyLorcon2_Packet *self, PyObject *args, PyObject *kwds);
 */
 static PyMethodDef PyLorcon2_Packet_Methods[] =
 {
-    {"get_time_sec", PyLorcon2_Packet_get_time_sec, METH_NOARGS, PyLorcon2Packet_get_time_sec__doc__},
-    {"get_time_usec", PyLorcon2_Packet_get_time_usec, METH_NOARGS, PyLorcon2Packet_get_time_usec__doc__},
-    {"get_length", PyLorcon2_Packet_get_length, METH_NOARGS, PyLorcon2Packet_get_length__doc__},
-    {"get_dot11_length", PyLorcon2_Packet_get_dot11_length, METH_NOARGS, PyLorcon2Packet_get_dot11_length__doc__},
-    {"get_payload_length", PyLorcon2_Packet_get_payload_length, METH_NOARGS, PyLorcon2Packet_get_payload_length__doc__},
-    {"get_packet", PyLorcon2_Packet_get_packet, METH_NOARGS, PyLorcon2Packet_get_packet__doc__},
-    {"get_dot11", PyLorcon2_Packet_get_dot11, METH_NOARGS, PyLorcon2Packet_get_dot11__doc__},
-    {"get_data_payload", PyLorcon2_Packet_get_data_payload, METH_NOARGS, PyLorcon2Packet_get_data_payload__doc__},
+    {"get_time_sec", (PyCFunction) PyLorcon2_Packet_get_time_sec, 
+        METH_NOARGS, PyLorcon2Packet_get_time_sec__doc__},
+    {"get_time_usec", (PyCFunction) PyLorcon2_Packet_get_time_usec, 
+        METH_NOARGS, PyLorcon2Packet_get_time_usec__doc__},
+    {"get_length", (PyCFunction) PyLorcon2_Packet_get_length, 
+        METH_NOARGS, PyLorcon2Packet_get_length__doc__},
+    {"get_dot11_length", (PyCFunction) PyLorcon2_Packet_get_dot11_length, 
+        METH_NOARGS, PyLorcon2Packet_get_dot11_length__doc__},
+    {"get_payload_length", (PyCFunction) PyLorcon2_Packet_get_payload_length, 
+        METH_NOARGS, PyLorcon2Packet_get_payload_length__doc__},
+    {"get_packet", (PyCFunction) PyLorcon2_Packet_get_packet, 
+        METH_NOARGS, PyLorcon2Packet_get_packet__doc__},
+    {"get_dot11", (PyCFunction) PyLorcon2_Packet_get_dot11, 
+        METH_NOARGS, PyLorcon2Packet_get_dot11__doc__},
+    {"get_data_payload", (PyCFunction) PyLorcon2_Packet_get_data_payload, 
+        METH_NOARGS, PyLorcon2Packet_get_data_payload__doc__},
+    {"get_interface", (PyCFunction) PyLorcon2_Packet_get_interface, 
+        METH_NOARGS, PyLorcon2Packet_get_interface__doc__},
     { NULL, NULL, 0, NULL }
 };
 
@@ -322,6 +386,72 @@ static PyTypeObject PyLorcon2_PacketType = {
 /*
     ###########################################################################
     
+    Packet Definitions
+    
+    ###########################################################################
+*/
+static PyMethodDef PyLorcon2_Multi_Methods[] =
+{
+    {"get_error", (PyCFunction) PyLorcon2_Multi_get_error,
+        METH_NOARGS, PyLorcon2Multi_get_error__doc__},
+    {"add_interface", (PyCFunction) PyLorcon2_Multi_add_interface,
+        METH_VARARGS, PyLorcon2Multi_add_interface__doc__ },
+    {"del_interface", (PyCFunction) PyLorcon2_Multi_del_interface,
+        METH_VARARGS, PyLorcon2Multi_del_interface__doc__ },
+    {"get_interfaces", (PyCFunction) PyLorcon2_Multi_get_interfaces,
+        METH_NOARGS, PyLorcon2Multi_get_interfaces__doc__ },
+    {"loop", (PyCFunction) PyLorcon2_Multi_loop,
+        METH_VARARGS, PyLorcon2Multi_loop__doc__ },
+    {"get_multi_ptr", (PyCFunction) PyLorcon2_Multi_get_multi_ptr,
+        METH_NOARGS, PyLorcon2Multi_get_multi_ptr__doc__ },
+    { NULL, NULL, 0, NULL }
+};
+
+static PyTypeObject PyLorcon2_MultiType = {
+    PyObject_HEAD_INIT(NULL)
+    0,                                        /* ob_size */
+    "PyLorcon2.Multi",                        /* tp_name */
+    sizeof(PyLorcon2_Multi),                  /* tp_basic_size */
+    0,                                        /* tp_itemsize */
+    (destructor)PyLorcon2_Multi_dealloc,      /* tp_dealloc */
+    0,                                        /* tp_print */
+    0,                                        /* tp_getattr */
+    0,                                        /* tp_setattr */
+    0,                                        /* tp_compare */
+    0,                                        /* tp_repr */
+    0,                                        /* tp_as_number */
+    0,                                        /* tp_as_sequence */
+    0,                                        /* tp_as_mapping */
+    0,                                        /* tp_hash */
+    0,                                        /* tp_call */
+    0,                                        /* tp_str */
+    0,                                        /* tp_getattro */
+    0,                                        /* tp_setattro */
+    0,                                        /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+    "PyLorcon2 Multicap",                     /* tp_doc */
+    0,                                        /* tp_traverse */
+    0,                                        /* tp_clear */
+    0,                                        /* tp_richcompare */
+    0,                                        /* tp_weaklistoffset */
+    0,                                        /* tp_iter */
+    0,                                        /* tp_iternext */
+    PyLorcon2_Multi_Methods,                  /* tp_methods */
+    0,                                        /* tp_members */
+    0,                                        /* tp_getset */
+    0,                                        /* tp_base */
+    0,                                        /* tp_dict */
+    0,                                        /* tp_descr_get */
+    0,                                        /* tp_descr_set */
+    0,                                        /* tp_dictoffset */
+    (initproc)PyLorcon2_Multi_init,           /* tp_init */
+    0,                                        /* tp_alloc */
+    0,                                        /* tp_new */
+};
+
+/*
+    ###########################################################################
+    
     Definitions
     
     ###########################################################################
@@ -329,10 +459,14 @@ static PyTypeObject PyLorcon2_PacketType = {
 
 static PyMethodDef PyLorcon2Methods[] =
 {
-    {"get_version",  PyLorcon2_get_version,  METH_NOARGS,  PyLorcon2_get_version__doc__},
-    {"list_drivers", PyLorcon2_list_drivers, METH_NOARGS,  PyLorcon2_list_drivers__doc__},
-    {"find_driver",  PyLorcon2_find_driver,  METH_VARARGS, PyLorcon2_find_driver__doc__},
-    {"auto_driver",  PyLorcon2_auto_driver,  METH_VARARGS, PyLorcon2_auto_driver__doc__},
+    {"get_version",  PyLorcon2_get_version,  
+        METH_NOARGS,  PyLorcon2_get_version__doc__},
+    {"list_drivers", PyLorcon2_list_drivers, 
+        METH_NOARGS,  PyLorcon2_list_drivers__doc__},
+    {"find_driver",  PyLorcon2_find_driver,  
+        METH_VARARGS, PyLorcon2_find_driver__doc__},
+    {"auto_driver",  PyLorcon2_auto_driver,  
+        METH_VARARGS, PyLorcon2_auto_driver__doc__},
     {NULL, NULL, 0, NULL}
 };
 
@@ -423,6 +557,9 @@ initPyLorcon2(void)
     if(PyType_Ready(&PyLorcon2_PacketType) < 0)
         return;
 
+    if(PyType_Ready(&PyLorcon2_MultiType) < 0)
+        return;
+
     m = Py_InitModule3("PyLorcon2", PyLorcon2Methods, "Wrapper for the Lorcon2 library");
 
     if(m == NULL)
@@ -441,6 +578,15 @@ initPyLorcon2(void)
     PyLorcon2_ContextType.tp_new = PyType_GenericNew;
     PyLorcon2_ContextType.tp_free = _PyObject_Del;
     PyModule_AddObject(m, "Context", (PyObject*)&PyLorcon2_ContextType);
+
+    /* Lorcon2 Multicap Object */
+    Py_INCREF(&PyLorcon2_MultiType);
+    PyLorcon2_MultiType.tp_getattro = PyObject_GenericGetAttr;
+    PyLorcon2_MultiType.tp_setattro = PyObject_GenericSetAttr;
+    PyLorcon2_MultiType.tp_alloc  = PyType_GenericAlloc;
+    PyLorcon2_MultiType.tp_new = PyType_GenericNew;
+    PyLorcon2_MultiType.tp_free = _PyObject_Del;
+    PyModule_AddObject(m, "Multi", (PyObject*)&PyLorcon2_MultiType);
 
     /* Lorcon2 Packet Object */
     Py_INCREF(&PyLorcon2_PacketType);
@@ -568,8 +714,12 @@ PyLorcon2_Context_init(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
     static char *kwlist[] = {"iface", "driver", NULL};
     char *iface = NULL, *drivername = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", kwlist, &iface, &drivername))
-        return -1;
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", 
+                kwlist, &iface, &drivername)) {
+        self->context = NULL;
+        self->monitored = 0;
+        return 0;
+    }
 
     if (drivername == NULL) {
         driver = lorcon_auto_driver(iface);
@@ -704,7 +854,7 @@ static PyObject*
 PyLorcon2_Context_set_filter(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
 {
     char *filter_buffer;
-    char *filter_size;
+    ssize_t filter_size;
 
     PyObject *filter, *filter_string;
     int ret;
@@ -811,11 +961,6 @@ PyLorcon2_Context_get_channel(PyLorcon2_Context *self)
 {
     int channel;
 
-    if (!self->monitored) {
-        PyErr_SetString(PyExc_RuntimeError, "Context must be in monitor/injection-mode");
-        return NULL;
-    }
-
     channel = lorcon_get_channel(self->context);
     if (channel < 0) {
         PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
@@ -832,11 +977,6 @@ PyLorcon2_Context_get_hwmac(PyLorcon2_Context *self)
     uint8_t *mac;
     PyObject *ret;
 
-    if (!self->monitored) {
-        PyErr_SetString(PyExc_RuntimeError, "Context must be in monitor/injection-mode");
-        return NULL;
-    }
-
     r = lorcon_get_hwmac(self->context, &mac);
     if (r < 0) {
         PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
@@ -845,7 +985,8 @@ PyLorcon2_Context_get_hwmac(PyLorcon2_Context *self)
         Py_INCREF(Py_None);
         ret = Py_None;
     } else {
-        ret = Py_BuildValue("(i,i,i,i,i,i)", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        ret = Py_BuildValue("(i,i,i,i,i,i)", 
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         free(mac);
     }
 
@@ -985,12 +1126,7 @@ PyLorcon2_Packet_dealloc(PyLorcon2_Packet *self)
 static int
 PyLorcon2_Packet_init(PyLorcon2_Packet *self, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {NULL};
-    char *iface;
-
     self->packet = NULL;
-
-    // PyErr_SetString(Lorcon2PacketException, "Cannot create packet object from python");
     
     return 0;
 }
@@ -1003,7 +1139,7 @@ PyLorcon2_Packet_get_packet(PyLorcon2_Packet *self) {
         return NULL;
     }
 
-    return PyByteArray_FromStringAndSize(self->packet->packet_raw, 
+    return PyByteArray_FromStringAndSize((const char *) self->packet->packet_raw, 
             self->packet->length);
 }
 
@@ -1014,7 +1150,7 @@ PyLorcon2_Packet_get_dot11(PyLorcon2_Packet *self) {
         return NULL;
     }
 
-    return PyByteArray_FromStringAndSize(self->packet->packet_header, 
+    return PyByteArray_FromStringAndSize((const char *) self->packet->packet_header, 
             self->packet->length_header);
 }
 
@@ -1025,7 +1161,206 @@ PyLorcon2_Packet_get_data_payload(PyLorcon2_Packet *self) {
         return NULL;
     }
 
-    return PyByteArray_FromStringAndSize(self->packet->packet_data, 
+    return PyByteArray_FromStringAndSize((const char *) self->packet->packet_data, 
             self->packet->length_data);
+}
+
+static PyObject *
+PyLorcon2_Packet_get_interface(PyLorcon2_Packet *self) {
+    PyObject *arg_tuple, *obj;
+
+    if (self->packet == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Packet not built");
+        return NULL;
+    }
+
+    arg_tuple = PyTuple_New(0);
+
+    obj = PyObject_CallObject((PyObject *) &PyLorcon2_ContextType, arg_tuple);
+    ((PyLorcon2_Context *) obj)->context = lorcon_packet_get_interface(self->packet);
+
+    Py_DECREF(arg_tuple);
+
+    Py_INCREF(obj);
+
+    return obj;
+}
+
+static int PyLorcon2_Multi_init(PyLorcon2_Multi *self, 
+        PyObject *args, PyObject *kwds) {
+
+    self->multi = lorcon_multi_create();
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Unable to allocate multicap");
+        return -1;
+    }
+
+    self->cb_func = NULL;
+    self->cb_aux = NULL;
+    
+    return 1;
+}
+
+static void PyLorcon2_Multi_dealloc(PyLorcon2_Multi *self) {
+    if (self->multi == NULL)
+        return;
+
+    lorcon_multi_free(self->multi, 1);
+
+    self->multi = NULL;
+
+    if (self->cb_func != NULL)
+        Py_XDECREF(self->cb_func);
+    if (self->cb_aux != NULL)
+        Py_XDECREF(self->cb_aux);
+
+    self->ob_type->tp_free(self);
+}
+
+static PyObject* PyLorcon2_Multi_get_error(PyLorcon2_Multi *self) {
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    return PyString_FromString(lorcon_multi_get_error(self->multi));
+}
+
+static PyObject* PyLorcon2_Multi_add_interface(PyLorcon2_Multi *self, 
+        PyObject *args) {
+
+    PyObject *intf_obj;
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "O", &intf_obj))
+        return NULL;
+
+    if (!PyObject_TypeCheck(intf_obj, &PyLorcon2_ContextType)) {
+        PyErr_SetString(PyExc_RuntimeError, "Expected Lorcon2.Context");
+        return NULL;
+    }
+
+    Py_INCREF(intf_obj);
+    lorcon_multi_add_interface(self->multi, ((PyLorcon2_Context *) intf_obj)->context);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* PyLorcon2_Multi_del_interface(PyLorcon2_Multi *self, 
+        PyObject *args) {
+    PyObject *intf_obj;
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "O", &intf_obj))
+        return NULL;
+
+    if (!PyObject_TypeCheck(intf_obj, &PyLorcon2_ContextType)) {
+        PyErr_SetString(PyExc_RuntimeError, "Expected Lorcon2.Context");
+        return NULL;
+    }
+
+    lorcon_multi_del_interface(self->multi, 
+            ((PyLorcon2_Context *) intf_obj)->context, 1);
+    Py_DECREF(intf_obj);
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* PyLorcon2_Multi_get_interfaces(PyLorcon2_Multi *self) {
+    PyObject *retlist;
+    PyObject *stringobj;
+    lorcon_multi_interface_t *interface = NULL;
+    lorcon_t *lorcon;
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    retlist = PyList_New(0);
+
+    while ((interface = lorcon_multi_get_next_interface(self->multi, interface))) {
+        lorcon = lorcon_multi_interface_get_lorcon(interface);
+        stringobj = PyString_FromString(lorcon_get_capiface(lorcon));
+        PyList_Append(retlist, stringobj);
+        Py_DECREF(stringobj);
+    }
+
+    return retlist;
+}
+
+void pylorcon2_multi_handler(lorcon_t *ctx, lorcon_packet_t *pkt, u_char *aux) {
+    PyLorcon2_Multi *multi = (PyLorcon2_Multi *) aux;
+    PyObject *pypacket, *cb_arg, *packet_tuple_arg;
+    PyObject *pyresult;
+    
+    packet_tuple_arg = PyTuple_New(0);
+    pypacket = PyObject_CallObject((PyObject *) &PyLorcon2_PacketType, 
+            packet_tuple_arg);
+    ((PyLorcon2_Packet *) pypacket)->packet = pkt;
+    Py_DECREF(packet_tuple_arg);
+
+    cb_arg = Py_BuildValue("(O)", pypacket);
+    pyresult = PyEval_CallObject(multi->cb_func, cb_arg);
+    Py_DECREF(cb_arg);
+
+    if (pyresult == NULL) {
+        PyErr_Print();
+        printf("*** pylorcon2.multi callback handler error\n");
+        exit(1);
+    } 
+}
+
+static PyObject* PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args) {
+    PyObject *callback;
+    int num, ret;
+    
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "iO", &num, &callback))
+        return NULL;
+
+    if (!PyCallable_Check(callback)) {
+        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+        return NULL;
+    }
+
+    Py_XINCREF(callback);
+
+    if (self->cb_func != NULL)
+        Py_XDECREF(self->cb_func);
+
+    self->cb_func = callback;
+
+    ret = lorcon_multi_loop(self->multi, num, pylorcon2_multi_handler, (void *) self);
+
+    return PyInt_FromLong(ret);
+}
+
+static PyObject* PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self) {
+    PyObject *ptrcapsule;
+    
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    ptrcapsule = PyCapsule_New((void *) self->multi, "MULTI", NULL);
+
+    return ptrcapsule;
 }
 

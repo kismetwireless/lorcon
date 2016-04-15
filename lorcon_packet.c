@@ -455,6 +455,8 @@ lorcon_packet_t *lorcon_packet_from_pcap(lorcon_t *context,
 
 	l_packet = (lorcon_packet_t *) malloc(sizeof(lorcon_packet_t));
 
+    l_packet->interface = context;
+
 	l_packet->lcpa = NULL;
 
 	l_packet->ts.tv_sec = h->ts.tv_sec;
@@ -797,5 +799,9 @@ uint16_t lorcon_packet_get_llc_type(lorcon_packet_t *packet) {
     } 
 
     return 0;
+}
+
+struct lorcon *lorcon_packet_get_interface(lorcon_packet_t *packet) {
+    return packet->interface;
 }
 
