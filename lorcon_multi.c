@@ -134,15 +134,19 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
 
     while (packets < count || count < 0) {
         FD_ZERO(&rset);
+        maxfd = 0;
 
         while ((intf = lorcon_multi_get_next_interface(ctx, intf))) {
             int fd = lorcon_get_selectable_fd(intf->lorcon_intf);
 
             if (fd < 0) {
+                /*
                 snprintf(ctx->errstr, LORCON_STATUS_MAX, 
                         "%s doesn't present selectable fd",
                         lorcon_get_capiface(intf->lorcon_intf));
                 return -1;
+                */
+                continue;
             }
 
             FD_SET(fd, &rset);
@@ -150,6 +154,11 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
             if (maxfd < fd)
                 maxfd = fd;
 
+        }
+
+        if (maxfd == 0) {
+            fprintf(stderr, "lorcon_multi_loop no interfaces with packets left\n");
+            return 0;
         }
 
         /* Blocking select */
@@ -166,20 +175,30 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
             int fd = lorcon_get_selectable_fd(intf->lorcon_intf);
 
             if (fd < 0) {
+                /*
                 snprintf(ctx->errstr, LORCON_STATUS_MAX, 
                         "%s doesn't present selectable fd",
                         lorcon_get_capiface(intf->lorcon_intf));
                 return -1;
+                */
+                continue;
             }
 
             if (FD_ISSET(fd, &rset)) {
                 r = lorcon_dispatch(intf->lorcon_intf, 1, callback, user);
 
-                if (r < 0) {
+                if (r <= 0) {
+                    /*
                     snprintf(ctx->errstr, LORCON_STATUS_MAX,
                             "%s failed dispatch",
                             lorcon_get_capiface(intf->lorcon_intf));
-                    return -1;
+                    return -1; 
+                    */
+
+                    fprintf(stderr, "Interface stopped reporting packets, removing "
+                            "from multicap: %s\n", 
+                            lorcon_get_capiface(intf->lorcon_intf));
+                    lorcon_multi_del_interface(ctx, intf->lorcon_intf, 1);
                 }
 
                 packets++;

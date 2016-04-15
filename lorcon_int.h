@@ -28,8 +28,8 @@
 
 #include <pcap.h>
 
-#include <lorcon.h>
-#include <lorcon_packet.h>
+#include "lorcon.h"
+#include "lorcon_packet.h"
 
 /* This file is meant for use inside the lorcon library ONLY, apps should not
  * count on it existing or being consistent */
