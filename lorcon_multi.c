@@ -198,7 +198,7 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
                     fprintf(stderr, "Interface stopped reporting packets, removing "
                             "from multicap: %s\n", 
                             lorcon_get_capiface(intf->lorcon_intf));
-                    lorcon_multi_del_interface(ctx, intf->lorcon_intf, 1);
+                    lorcon_multi_del_interface(ctx, intf->lorcon_intf, 0);
                 }
 
                 packets++;
