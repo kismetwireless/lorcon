@@ -1206,7 +1206,7 @@ static void PyLorcon2_Multi_dealloc(PyLorcon2_Multi *self) {
     if (self->multi == NULL)
         return;
 
-    lorcon_multi_free(self->multi, 1);
+    lorcon_multi_free(self->multi, 0);
 
     self->multi = NULL;
 
