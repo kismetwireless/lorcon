@@ -58,7 +58,7 @@ lorcon_multi_interface_t *lorcon_multi_get_next_interface(lorcon_multi_t *ctx,
         lorcon_multi_interface_t *intf);
 lorcon_t *lorcon_multi_interface_get_lorcon(lorcon_multi_interface_t *intf);
 
-/* Enter a blocking capture loop */
+/* Enter a blocking capture loop for `count' packets */
 int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
         u_char *user);
 

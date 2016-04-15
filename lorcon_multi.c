@@ -132,7 +132,7 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
         return -1;
     }
 
-    while (packets < count || count < 0) {
+    while (packets < count || count <= 0) {
         FD_ZERO(&rset);
         maxfd = 0;
 

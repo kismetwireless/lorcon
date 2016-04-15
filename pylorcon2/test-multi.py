@@ -20,5 +20,5 @@ print multi.get_interfaces()
 def MultiHandler(packet):
     print "Got packet from %s len %d" % (packet.get_interface().get_capiface(), packet.get_length())
 
-multi.loop(-1, MultiHandler)
+multi.loop(0, MultiHandler)
 

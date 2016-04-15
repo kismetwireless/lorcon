@@ -284,7 +284,7 @@ PyDoc_STRVAR(PyLorcon2Multi_loop__doc__,
     "Loop on all interfaces, calling the callback function on each"
     "packet.  Callbacks should be:\n"
     "def MultiCallback(packet)\n"
-    "Processes `count' packets (-1 for infinite)");
+    "Processes `count' packets (0 for infinite)");
 static PyObject*
 PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args);
 
