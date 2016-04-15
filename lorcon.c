@@ -183,6 +183,9 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 }
 
 void lorcon_free(lorcon_t *context) {
+    if (context == NULL)
+        return;
+
 	if (context->close_cb != NULL) 
 		(*(context->close_cb))(context);
 
