@@ -29,7 +29,6 @@
 #define __PYLORCON2__
 
 static PyObject *Lorcon2Exception;
-static PyObject *Lorcon2PacketException;
 
 typedef struct {
   PyObject_HEAD

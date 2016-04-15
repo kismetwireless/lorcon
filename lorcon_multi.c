@@ -153,7 +153,7 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
         }
 
         /* Blocking select */
-        if (select(maxfd, &rset, NULL, NULL, NULL) < 0) {
+        if (select(maxfd + 1, &rset, NULL, NULL, NULL) < 0) {
             if (errno != EINTR && errno != EAGAIN) {
                 snprintf(ctx->errstr, LORCON_STATUS_MAX,
                         "select fail: %s", strerror(errno));
