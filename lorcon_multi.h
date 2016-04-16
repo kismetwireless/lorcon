@@ -31,7 +31,11 @@
 #define __LORCON_MULTI_H__
 
 #include <stdint.h>
-#include <lorcon2/lorcon.h>
+
+struct lorcon;
+typedef struct lorcon lorcon_t;
+
+struct lorcon_handler;
 
 struct lorcon_multi_interface;
 typedef struct lorcon_multi_interface lorcon_multi_interface_t;
@@ -60,6 +64,6 @@ lorcon_t *lorcon_multi_interface_get_lorcon(lorcon_multi_interface_t *intf);
 
 /* Enter a blocking capture loop for `count' packets */
 int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
-        u_char *user);
+        unsigned char *user);
 
 #endif
