@@ -73,6 +73,8 @@ struct lorcon {
 
 	void *auxptr;
 
+    void *userauxptr;
+
 	lorcon_handler handler_cb;
 	void *handler_user;
 

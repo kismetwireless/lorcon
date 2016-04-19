@@ -140,12 +140,14 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
             int fd = lorcon_get_selectable_fd(intf->lorcon_intf);
 
             if (fd < 0) {
-                /*
-                snprintf(ctx->errstr, LORCON_STATUS_MAX, 
-                        "%s doesn't present selectable fd",
-                        lorcon_get_capiface(intf->lorcon_intf));
-                return -1;
-                */
+                lorcon_multi_del_interface(ctx, intf->lorcon_intf, 0);
+
+                if (intf->error_handler != NULL) {
+                    (*(intf->error_handler))(ctx, intf->lorcon_intf, intf->error_aux);
+                }
+
+                /* reset loop */
+                intf = NULL;
                 continue;
             }
 
@@ -175,12 +177,15 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
             int fd = lorcon_get_selectable_fd(intf->lorcon_intf);
 
             if (fd < 0) {
-                /*
-                snprintf(ctx->errstr, LORCON_STATUS_MAX, 
-                        "%s doesn't present selectable fd",
-                        lorcon_get_capiface(intf->lorcon_intf));
-                return -1;
-                */
+                lorcon_multi_del_interface(ctx, intf->lorcon_intf, 0);
+
+                if (intf->error_handler != NULL) {
+                    (*(intf->error_handler))(ctx, intf->lorcon_intf, intf->error_aux);
+                }
+
+                /* reset loop */
+                intf = NULL;
+
                 continue;
             }
 
@@ -199,6 +204,14 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
                             "from multicap: %s\n", 
                             lorcon_get_capiface(intf->lorcon_intf));
                     lorcon_multi_del_interface(ctx, intf->lorcon_intf, 0);
+
+                    if (intf->error_handler != NULL) {
+                        (*(intf->error_handler))(ctx, intf->lorcon_intf, intf->error_aux);
+                    }
+
+                    /* reset loop */
+                    intf = NULL;
+                    continue;
                 }
 
                 packets++;
@@ -208,6 +221,33 @@ int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
     }
 
     return packets;
+}
+
+void lorcon_multi_set_interface_error_handler(lorcon_multi_t *ctx,
+        lorcon_t *lorcon_interface, lorcon_multi_error_handler handler, 
+        void *aux) {
+    lorcon_multi_interface_t *intf = NULL;
+
+    while ((intf = lorcon_multi_get_next_interface(ctx, intf))) {
+        if (intf->lorcon_intf == lorcon_interface) {
+            intf->error_handler = handler;
+            intf->error_aux = aux;
+            return;
+        }
+    }
+}
+
+void lorcon_multi_remove_interface_error_handler(lorcon_multi_t *ctx, 
+        lorcon_t *lorcon_interface) {
+    lorcon_multi_interface_t *intf = NULL;
+
+    while ((intf = lorcon_multi_get_next_interface(ctx, intf))) {
+        if (intf->lorcon_intf == lorcon_interface) {
+            intf->error_handler = NULL;
+            intf->error_aux = NULL;
+            return;
+        }
+    }
 }
 
 

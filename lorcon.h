@@ -159,6 +159,10 @@ unsigned long int lorcon_get_version();
 /* Add a wep key to a context */
 int lorcon_add_wepkey(lorcon_t *context, u_char *bssid, u_char *key, int length);
 
+/* get/set an arbitrary userdata auxptr on a context */
+void lorcon_set_useraux(lorcon_t *context, void *aux);
+void *lorcon_get_useraux(lorcon_t *context);
+
 /* Error codes testable on return values */
 
 /* Generic failure */

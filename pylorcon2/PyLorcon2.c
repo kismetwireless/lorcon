@@ -296,6 +296,19 @@ PyDoc_STRVAR(PyLorcon2Multi_get_multi_ptr__doc__,
 static PyObject*
 PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self);
 
+PyDoc_STRVAR(PyLorcon2Multi_set_interface_error_cb__doc__,
+    "set_interface_error_cb(callback) -> None\n\n"
+    "Set a callback function to be called if an interface encounters an "
+    "error.  Callbacks should be:\n"
+    "def ErrorCallback(Lorcon2.Multi, Lorcon2.Context)");
+static PyObject *
+PyLorcon2_Multi_set_interface_error_cb(PyLorcon2_Multi *self, PyObject *args);
+
+PyDoc_STRVAR(PyLorcon2Multi_remove_interface_error_cb__doc__,
+    "remove_interface_error_cb() -> None\n\n"
+    "Remove error callback");
+static PyObject *
+PyLorcon2_Multi_remove_interface_error_cb(PyLorcon2_Multi *self, PyObject *args);
 
 /*
     ###########################################################################
@@ -404,6 +417,11 @@ static PyMethodDef PyLorcon2_Multi_Methods[] =
         METH_VARARGS, PyLorcon2Multi_loop__doc__ },
     {"get_multi_ptr", (PyCFunction) PyLorcon2_Multi_get_multi_ptr,
         METH_NOARGS, PyLorcon2Multi_get_multi_ptr__doc__ },
+    {"set_interface_error_cb", (PyCFunction) PyLorcon2_Multi_set_interface_error_cb,
+        METH_VARARGS, PyLorcon2Multi_set_interface_error_cb__doc__ },
+    {"remove_interface_error_cb", 
+        (PyCFunction) PyLorcon2_Multi_remove_interface_error_cb,
+        METH_VARARGS, PyLorcon2Multi_remove_interface_error_cb__doc__ },
     { NULL, NULL, 0, NULL }
 };
 
@@ -702,7 +720,7 @@ PyLorcon2_auto_driver(PyObject *self, PyObject *args)
 static void
 PyLorcon2_Context_dealloc(PyLorcon2_Context *self)
 {
-    if(self->context != NULL)
+    if(self->context != NULL && self->free_on_cleanup)
         lorcon_free(self->context);
     self->ob_type->tp_free((PyObject*)self);
 }
@@ -714,10 +732,17 @@ PyLorcon2_Context_init(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
     static char *kwlist[] = {"iface", "driver", NULL};
     char *iface = NULL, *drivername = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|s", 
-                kwlist, &iface, &drivername)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ss", kwlist, &iface, &drivername)) {
         self->context = NULL;
         self->monitored = 0;
+        return -1;
+    }
+
+    /* If we didn't get an interface, make a stub context */
+    if (iface == NULL) {
+        self->context = NULL;
+        self->monitored = 0;
+        self->free_on_cleanup = 0;
         return 0;
     }
 
@@ -743,6 +768,8 @@ PyLorcon2_Context_init(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
     
     self->monitored = 0;
     lorcon_set_timeout(self->context, 100);
+
+    self->free_on_cleanup = 1;
 
     return 0;
 }
@@ -1174,10 +1201,12 @@ PyLorcon2_Packet_get_interface(PyLorcon2_Packet *self) {
         return NULL;
     }
 
+    /* Make a context object that doesn't free its internal structure when the
+     * python object goes away by wedging it */
     arg_tuple = PyTuple_New(0);
-
     obj = PyObject_CallObject((PyObject *) &PyLorcon2_ContextType, arg_tuple);
     ((PyLorcon2_Context *) obj)->context = lorcon_packet_get_interface(self->packet);
+    ((PyLorcon2_Context *) obj)->free_on_cleanup = 0;
 
     Py_DECREF(arg_tuple);
 
@@ -1198,6 +1227,7 @@ static int PyLorcon2_Multi_init(PyLorcon2_Multi *self,
 
     self->cb_func = NULL;
     self->cb_aux = NULL;
+    self->error_cb_func = NULL;
     
     return 1;
 }
@@ -1206,14 +1236,14 @@ static void PyLorcon2_Multi_dealloc(PyLorcon2_Multi *self) {
     if (self->multi == NULL)
         return;
 
-    lorcon_multi_free(self->multi, 0);
-
     self->multi = NULL;
 
     if (self->cb_func != NULL)
         Py_XDECREF(self->cb_func);
     if (self->cb_aux != NULL)
         Py_XDECREF(self->cb_aux);
+    if (self->error_cb_func != NULL)
+        Py_XDECREF(self->error_cb_func);
 
     self->ob_type->tp_free(self);
 }
@@ -1225,6 +1255,40 @@ static PyObject* PyLorcon2_Multi_get_error(PyLorcon2_Multi *self) {
     }
 
     return PyString_FromString(lorcon_multi_get_error(self->multi));
+}
+
+void pylorcon2_multi_error_handler(lorcon_multi_t *ctx, lorcon_t *lorcon_interface,
+        void *aux) {
+    PyLorcon2_Multi *multi = (PyLorcon2_Multi *) aux;
+    PyObject *arg_tuple, *lorcon_obj;
+    PyObject *cb_arg;
+    PyObject *pyresult;
+
+    /* Do nothing if we don't have a callback function */
+    if (multi->error_cb_func == NULL)
+        return;
+    
+    /* Make a lorcon context object that doesn't free its internal structure when the
+     * python object goes away by wedging it */
+    arg_tuple = PyTuple_New(0);
+    lorcon_obj = PyObject_CallObject((PyObject *) &PyLorcon2_ContextType, arg_tuple);
+    ((PyLorcon2_Context *) lorcon_obj)->context = lorcon_interface;
+    ((PyLorcon2_Context *) lorcon_obj)->free_on_cleanup = 0;
+    Py_DECREF(arg_tuple);
+    Py_INCREF(lorcon_obj);
+
+    /* Call the error cb function */
+    cb_arg = Py_BuildValue("(O)", lorcon_obj);
+    pyresult = PyEval_CallObject(multi->error_cb_func, cb_arg);
+    Py_DECREF(cb_arg);
+
+    if (pyresult == NULL) {
+        PyErr_Print();
+        printf("*** pylorcon2.multi error callback handler error\n");
+        exit(1);
+    } 
+
+    Py_DECREF(pyresult);
 }
 
 static PyObject* PyLorcon2_Multi_add_interface(PyLorcon2_Multi *self, 
@@ -1247,6 +1311,9 @@ static PyObject* PyLorcon2_Multi_add_interface(PyLorcon2_Multi *self,
 
     Py_INCREF(intf_obj);
     lorcon_multi_add_interface(self->multi, ((PyLorcon2_Context *) intf_obj)->context);
+    lorcon_multi_set_interface_error_handler(self->multi, 
+            ((PyLorcon2_Context *) intf_obj)->context, 
+            pylorcon2_multi_error_handler, (void *) self);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1270,7 +1337,7 @@ static PyObject* PyLorcon2_Multi_del_interface(PyLorcon2_Multi *self,
     }
 
     lorcon_multi_del_interface(self->multi, 
-            ((PyLorcon2_Context *) intf_obj)->context, 1);
+            ((PyLorcon2_Context *) intf_obj)->context, 0);
     Py_DECREF(intf_obj);
 
     Py_INCREF(Py_None);
@@ -1320,6 +1387,8 @@ void pylorcon2_multi_handler(lorcon_t *ctx, lorcon_packet_t *pkt, u_char *aux) {
         printf("*** pylorcon2.multi callback handler error\n");
         exit(1);
     } 
+
+    Py_DECREF(pyresult);
 }
 
 static PyObject* PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args) {
@@ -1362,5 +1431,50 @@ static PyObject* PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self) {
     ptrcapsule = PyCapsule_New((void *) self->multi, "MULTI", NULL);
 
     return ptrcapsule;
+}
+
+static PyObject *PyLorcon2_Multi_set_interface_error_cb(PyLorcon2_Multi *self,
+        PyObject *args) {
+    PyObject *cb_obj;
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    if (!PyArg_ParseTuple(args, "O", &cb_obj))
+        return NULL;
+
+    if (!PyCallable_Check(cb_obj)) {
+        PyErr_SetString(PyExc_TypeError, "parameter must be callable");
+        return NULL;
+    }
+
+    Py_XINCREF(cb_obj);
+
+    if (self->cb_func != NULL)
+        Py_XDECREF(self->error_cb_func);
+
+    self->error_cb_func = cb_obj;
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *PyLorcon2_Multi_remove_interface_error_cb(PyLorcon2_Multi *self,
+        PyObject *args) {
+
+    if (self->multi == NULL) {
+        PyErr_SetString(PyExc_RuntimeError, "Multicap not allocated");
+        return NULL;
+    }
+
+    if (self->cb_func != NULL)
+        Py_XDECREF(self->error_cb_func);
+
+    self->error_cb_func = NULL;
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 

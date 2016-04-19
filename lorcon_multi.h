@@ -62,6 +62,18 @@ lorcon_multi_interface_t *lorcon_multi_get_next_interface(lorcon_multi_t *ctx,
         lorcon_multi_interface_t *intf);
 lorcon_t *lorcon_multi_interface_get_lorcon(lorcon_multi_interface_t *intf);
 
+/* Callback for interface failure.  On failure, interfaces are removed from the
+ * multi group, but may be re-added by this callback. 
+ * If there are no interfaces left at the next loop, lorcon_loop will exit.
+ */
+typedef void (*lorcon_multi_error_handler)(lorcon_multi_t *ctx, 
+        lorcon_t *lorcon_interface, void *aux);
+void lorcon_multi_set_interface_error_handler(lorcon_multi_t *ctx, 
+        lorcon_t *lorcon_interface, 
+        lorcon_multi_error_handler handler, void *aux);
+void lorcon_multi_remove_interface_error_handler(lorcon_multi_t *ctx, 
+        lorcon_t *lorcon_interface);
+
 /* Enter a blocking capture loop for `count' packets */
 int lorcon_multi_loop(lorcon_multi_t *ctx, int count, lorcon_handler callback,
         unsigned char *user);

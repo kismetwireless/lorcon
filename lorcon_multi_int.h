@@ -27,6 +27,9 @@
 struct lorcon_multi_interface {
     struct lorcon_multi_interface *next;
     lorcon_t *lorcon_intf;
+
+    lorcon_multi_error_handler error_handler;
+    void *error_aux;
 };
 
 struct lorcon_multi {

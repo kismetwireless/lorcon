@@ -34,6 +34,7 @@ typedef struct {
   PyObject_HEAD
   struct lorcon *context;
   char monitored;
+  char free_on_cleanup;
 } PyLorcon2_Context;
 
 typedef struct {
@@ -47,6 +48,9 @@ typedef struct {
 
     PyObject *cb_func;
     PyObject *cb_aux;
+
+    PyObject *error_cb_func;
+
 } PyLorcon2_Multi;
 
 #endif /* __PYLORCON2__ */

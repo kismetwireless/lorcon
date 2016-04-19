@@ -327,6 +327,8 @@ void lorcon_pcap_handler(u_char *user, const struct pcap_pkthdr *h,
 
 int lorcon_loop(lorcon_t *context, int count, lorcon_handler callback,
 				u_char *user) {
+    int ret;
+
 	if (context->pcap == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "capture driver %s did not create a pcap context",
@@ -337,11 +339,20 @@ int lorcon_loop(lorcon_t *context, int count, lorcon_handler callback,
 	context->handler_cb = callback;
 	context->handler_user = user;
 
-	return pcap_loop(context->pcap, count, lorcon_pcap_handler, (u_char *) context);
+	ret = pcap_loop(context->pcap, count, lorcon_pcap_handler, (u_char *) context);
+
+    if (ret == -1) {
+        snprintf(context->errstr, LORCON_STATUS_MAX,
+                "pcap_loop failed: %s", pcap_geterr(context->pcap));
+    }
+
+    return ret;
 }
 
 int lorcon_dispatch(lorcon_t *context, int count, lorcon_handler callback,
 					u_char *user) {
+    int ret;
+
 	if (context->pcap == NULL) {
 		snprintf(context->errstr, LORCON_STATUS_MAX, 
 				 "capture driver %s did not create a pcap context",
@@ -352,7 +363,14 @@ int lorcon_dispatch(lorcon_t *context, int count, lorcon_handler callback,
 	context->handler_cb = callback;
 	context->handler_user = user;
 
-	return pcap_dispatch(context->pcap, count, lorcon_pcap_handler, (u_char *) context);
+	ret = pcap_dispatch(context->pcap, count, lorcon_pcap_handler, (u_char *) context);
+
+    if (ret == -1) {
+        snprintf(context->errstr, LORCON_STATUS_MAX,
+                "pcap_dispatch failed: %s", pcap_geterr(context->pcap));
+    }
+
+    return ret;
 }
 
 int lorcon_next_ex(lorcon_t *context, lorcon_packet_t **packet) {
@@ -515,6 +533,14 @@ int lorcon_set_hwmac(lorcon_t *context, int mac_len, uint8_t *mac) {
 	}
 
 	return (*(context->setmac_cb))(context, mac_len, mac);
+}
+
+void lorcon_set_useraux(lorcon_t *context, void *aux) {
+    context->userauxptr = aux;
+}
+
+void *lorcon_get_useraux(lorcon_t *context) {
+    return context->userauxptr;
 }
 
 
