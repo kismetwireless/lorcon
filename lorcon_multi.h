@@ -35,8 +35,6 @@
 struct lorcon;
 typedef struct lorcon lorcon_t;
 
-struct lorcon_handler;
-
 struct lorcon_multi_interface;
 typedef struct lorcon_multi_interface lorcon_multi_interface_t;
 
@@ -44,6 +42,10 @@ struct lorcon_multi;
 typedef struct lorcon_multi lorcon_multi_t;
 
 const char *lorcon_multi_get_error(lorcon_multi_t *ctx);
+
+struct lorcon_packet;
+
+typedef void (*lorcon_handler)(lorcon_t *, struct lorcon_packet *, unsigned char *user);
 
 /* Create a multi-interface context */
 lorcon_multi_t *lorcon_multi_create();
