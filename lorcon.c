@@ -170,6 +170,7 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	context->getdlt_cb = NULL;
 	context->getmac_cb = NULL;
 	context->setmac_cb = NULL;
+    context->pcap_handler_cb = NULL;
 
 	context->wepkeys = NULL;
 
@@ -316,6 +317,16 @@ void lorcon_pcap_handler(u_char *user, const struct pcap_pkthdr *h,
 						 const u_char *bytes) {
 	lorcon_t *context = (lorcon_t *) user;
 	lorcon_packet_t *packet;
+    int r = 0;
+
+    /* If there is a sub-pcap handler, call it.  If it returns anything
+     * other than 0, it's handled the packet itself for some reason. */
+    if (context->pcap_handler_cb != NULL) {
+        r = (*(context->pcap_handler_cb))(user, h, bytes);
+
+        if (r != 0)
+            return;
+    }
 
 	if (context->handler_cb == NULL)
 		return;

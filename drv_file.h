@@ -29,6 +29,7 @@
 #define USE_DRV_FILE		1
 
 int drv_file_init(lorcon_t *);
+int drv_rtfile_init(lorcon_t *);
 lorcon_driver_t *drv_file_listdriver(lorcon_driver_t *);
 
 #endif /* big test */

@@ -99,6 +99,9 @@ struct lorcon {
 
 	int (*getmac_cb)(lorcon_t *context, uint8_t **mac);
 	int (*setmac_cb)(lorcon_t *context, int len, uint8_t *mac);
+
+    int (*pcap_handler_cb)(u_char *user, const struct pcap_pkthdr *h,
+            const u_char *bytes);
 };
 
 #endif

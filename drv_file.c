@@ -34,11 +34,13 @@
 
 #include "lorcon_int.h"
 
+struct rtfile_extra_lorcon {
+    struct timeval last_ts;
+};
+
 /* Monitor, inject, and injmon are all the same method, open a new vap */
 int file_openmon_cb(lorcon_t *context) {
 	char pcaperr[PCAP_ERRBUF_SIZE];
-	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
-	short flags;
     struct stat buf;
 
     if (stat(context->ifname, &buf) < 0) {
@@ -67,6 +69,38 @@ int file_sendbytes(lorcon_t *context, int length, u_char *bytes) {
     return -1;
 }
 
+int rtfile_pcap_handler(u_char *user, const struct pcap_pkthdr *h, 
+        const u_char *bytes) {
+    lorcon_t *context = (lorcon_t *) user;
+    struct rtfile_extra_lorcon *extra = 
+        (struct rtfile_extra_lorcon *) context->auxptr;
+    unsigned long delay_usec = 0;
+
+    /* First packet, do nothing */
+    if (extra->last_ts.tv_sec == 0) {
+        extra->last_ts.tv_sec = h->ts.tv_sec;
+        extra->last_ts.tv_usec = h->ts.tv_usec;
+        return 0;
+    }
+
+    /* Calculate the difference in time between the last packet and
+     * this one */
+    delay_usec = (h->ts.tv_sec - extra->last_ts.tv_sec) * 1000000L;
+
+    if (h->ts.tv_usec < extra->last_ts.tv_usec) {
+        delay_usec += (1000000L - extra->last_ts.tv_usec) + h->ts.tv_usec;
+    } else {
+        delay_usec += h->ts.tv_usec - extra->last_ts.tv_usec;
+    }
+
+    extra->last_ts.tv_sec = h->ts.tv_sec;
+    extra->last_ts.tv_usec = h->ts.tv_usec;
+
+    usleep(delay_usec);
+
+    return 0;
+}
+
 int drv_file_probe(const char *interface) {
     struct stat buf;
 
@@ -83,16 +117,40 @@ int drv_file_init(lorcon_t *context) {
 	return 1;
 }
 
+int drv_rtfile_init(lorcon_t *context) {
+    struct rtfile_extra_lorcon *rtf_extra;
+
+	context->openmon_cb = file_openmon_cb;
+	context->openinjmon_cb = file_openmon_cb;
+    context->pcap_handler_cb = rtfile_pcap_handler;
+
+    rtf_extra = 
+        (struct rtfile_extra_lorcon *) malloc(sizeof(struct rtfile_extra_lorcon));
+
+    rtf_extra->last_ts.tv_sec = 0;
+    rtf_extra->last_ts.tv_usec = 0;
+
+    context->auxptr = rtf_extra;
+
+	return 1;
+}
+
 lorcon_driver_t *drv_file_listdriver(lorcon_driver_t *head) {
 	lorcon_driver_t *d = (lorcon_driver_t *) malloc(sizeof(lorcon_driver_t));
+	lorcon_driver_t *rtd = (lorcon_driver_t *) malloc(sizeof(lorcon_driver_t));
 
 	d->name = strdup("file");
 	d->details = strdup("PCAP file source");
 	d->init_func = drv_file_init;
 	d->probe_func = drv_file_probe;
-
 	d->next = head;
 
-	return d;
+	rtd->name = strdup("rtfile");
+	rtd->details = strdup("Real-time PCAP file source");
+	rtd->init_func = drv_rtfile_init;
+	rtd->probe_func = drv_file_probe;
+	rtd->next = d;
+
+	return rtd;
 }
 
