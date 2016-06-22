@@ -400,7 +400,9 @@ int lorcon_packet_decode(lorcon_packet_t *packet) {
 				}
 
 				extra->bssid_mac = packet->packet_header + 4;
-				extra->source_mac = packet->packet_header + 10;
+                /* Source mac of actual packet is the 4th address
+                 * in a wds frame, and after the seq/frag */
+				extra->source_mac = packet->packet_header + 24;
 				extra->dest_mac = packet->packet_header + 16;
 
 				offt = 30;
