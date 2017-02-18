@@ -202,58 +202,76 @@ fi # waitairpcap
 
 fi # cygwin
 
-
-#havenetlink=no
 if test "$linux" = "yes"; then
-#havenetlink=yes
-#	AC_CHECK_HEADERS([asm/types.h netlink/genl/genl.h netlink/genl/family.h netlink/genl/ctrl.h netlink/msg.h netlink/attr.h linux/nl80211.h linux/if_arp.h linux/wireless.h], 
-#	AC_DEFINE(HAVE_NETLINKHEADERS, 1, Netlink headers are there), 
-#	havenetlink=no)
+
+havenetlink=yes
+
+netlink_force=no
+
+AC_ARG_WITH(netlink-version,
+	[  --with-netlink-version[=1|2|3]     Force using libnl1, libnl2, or libnl-3 ],
+	[
+	netlink_force=$withval
+	])
 
 AC_CHECK_PROG(havepkgconfig, [pkg-config], yes, no)
 if test "$havepkgconfig" = "no"; then
-  AC_MSG_ERROR(Missing pkg-config will lead to multiple other checks failing)
+  AC_MSG_WARN(Missing pkg-config will lead to multiple other checks failing)
 fi
 
 NLLIBS=""
 NLCFLAGS=""
 nlname=""
 
-#if test "$havenetlink" = "yes"; then
+if test "$havenetlink" = "yes"; then
 	PKG_CHECK_MODULES(libnl30, [libnl-3.0], libnl30=yes, libnl30=no)
 	PKG_CHECK_MODULES(libnlgenl30, [libnl-genl-3.0], libnlgenl30=yes, libnlgenl30=no)
 	PKG_CHECK_MODULES(libnl20, [libnl-2.0], libnl20=yes, libnl20=no)
 	PKG_CHECK_MODULES(libnl1, [libnl-1], libnl1=yes, libnl1=no)
 
-	if test "$libnl30" = "yes" -a "$libnlgenl30" = "yes"; then
-		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
-		AC_DEFINE(HAVE_LIBNL30, 1, libnl-3.0 netlink library)
-		AC_DEFINE(HAVE_LIBNL2PLUS, 1, libnl2 or higher)
-		nlname="libnl-3.0 libnl-genl-3.0"
-	elif test "$libnl20" = "yes"; then
-		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
-		AC_DEFINE(HAVE_LIBNL20, 1, libnl-2.0 netlink library)
-		AC_DEFINE(HAVE_LIBNL2PLUS, 1, libnl2 or higher)
-		nlname="libnl-2.0"
-	elif test "$libnl1" = "yes"; then
-		AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
-		nlname="libnl-1"
-	else
+	picked_nl=no
+	if test $picked_nl = "no" -a "$libnl30" = "yes" -a "$libnlgenl30" = "yes"; then
+		if test $netlink_force = "no" -o $netlink_force = "3"; then
+			picked_nl=3
+			AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+			AC_DEFINE(HAVE_LIBNL30, 1, libnl-3.0 netlink library)
+			nlname="libnl-3.0 libnl-genl-3.0"
+		fi
+	fi
+
+	if test $picked_nl = "no" -a "$libnl20" = "yes"; then
+		if test $netlink_force = "no" -o $netlink_force = "2"; then
+			picked_nl=2
+			AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+			AC_DEFINE(HAVE_LIBNL20, 1, libnl-2.0 netlink library)
+			nlname="libnl-2.0"
+		fi
+	fi
+
+	if test $picked_nl = "no" -a "$libnl1" = "yes"; then
+		if test $netlink_force = "no" -o $netlink_force = "1"; then
+			picked_nl=1
+			AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+			nlname="libnl-1"
+		fi
+	fi
+
+	if test $picked_nl = "no"; then
 		havenetlink="no"
 	fi
 
 	if test "$nlname" != ""; then
 		NLLIBS=`pkg-config --libs $nlname`
 		NLCFLAGS=`pkg-config --cflags $nlname`
-		havenetlink="yes"
 	fi
-#fi
+fi
 
-OLIBS="$LIBS"
-OCFL="$CPPFLAGS"
 if test "$havenetlink" = "yes"; then
+	OLIBS="$LIBS"
 	LIBS="$LIBS $NLLIBS"
+	OCFL="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $NLCFLAGS"
+
 	AC_MSG_CHECKING(For mac80211 support in netlink library)
 	AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 			#include <stdio.h>
@@ -270,7 +288,9 @@ if test "$havenetlink" = "yes"; then
 			NL80211_IFTYPE_MONITOR;
 			NL80211_CMD_NEW_INTERFACE;
 			return 0;
-			]])],[havenetlink=yes],[havenetlink=no LIBS="$OLIBS"])
+			]])],[havenetlink=yes KSLIBS="$KSLIBS $NLLIBS"],[havenetlink=no])
+
+	LIBS="$OLIBS"
 else
 	AC_MSG_WARN(Missing libnl netlink library will not be able to control mac80211 vaps)
 	havenetlink=no
@@ -278,11 +298,7 @@ fi
 
 if test "$havenetlink" = "yes"; then
 	AC_MSG_RESULT(yes)
-	AC_DEFINE(HAVE_LINUX_NETLINK, 1, Netlink works) 
-else
-	AC_MSG_RESULT(no libnl/libnl doesn't have mac80211 support, you need both for any drivers which require mac80211 support.)
-	LIBS="$OLIBS"
-	CPPFLAGS="$OCFL"
+	AC_DEFINE(HAVE_LINUX_NETLINK, 1, Netlink works)
 fi
 
 fi
