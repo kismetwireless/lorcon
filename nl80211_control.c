@@ -21,6 +21,10 @@
 
 #include "config.h"
 
+#if defined(HAVE_LIBNL20) || defined(HAVE_LIBNL30)
+#define HAVE_LIBNL_NG
+#endif
+
 #ifdef SYS_LINUX
 
 #ifdef HAVE_LINUX_NETLINK
@@ -47,22 +51,32 @@
 #include "nl80211_control.h"
 
 // Libnl1->Libnl2 compatability mode since the API changed, cribbed from 'iw'
-#if !defined(HAVE_LIBNL2PLUS) && defined(HAVE_LINUX_NETLINK)
+#if !defined(HAVE_LIBNL_NG)
 #define nl_sock nl_handle
 
 static inline struct nl_handle *nl_socket_alloc(void) {
+#ifdef HAVE_LINUX_NETLINK
 	return (struct nl_handle *) nl_handle_alloc();
+#else
+    return NULL;
+#endif
 }
 
 static inline void nl_socket_free(struct nl_sock *h) {
+#ifdef HAVE_LINUX_NETLINK
 	nl_handle_destroy(h);
+#endif
 }
 
 static inline int __genl_ctrl_alloc_cache(struct nl_sock *h, struct nl_cache **cache) {
+#ifdef HAVE_LINUX_NETLINK
 	struct nl_cache *tmp = genl_ctrl_alloc_cache(h);
 	if (!tmp)
 		return -1;
 	*cache = tmp;
+#else
+    *cache = NULL;
+#endif
 	return 0;
 }
 #define genl_ctrl_alloc_cache __genl_ctrl_alloc_cache
@@ -112,18 +126,22 @@ int nl80211_connect(const char *interface, void **handle, void **cache,
 	struct nl_cache *nl_cache;
 	struct genl_family *nl80211;
 
-	if ((nl_handle = nl_socket_alloc()) == NULL) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate nlhandle",
-				 __FUNCTION__);
-		return -1;
-	}
+    if (*handle == NULL) {
+        if ((nl_handle = nl_socket_alloc()) == NULL) {
+            snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate nlhandle",
+                    __FUNCTION__);
+            return -1;
+        }
 
-	if (genl_connect(nl_handle)) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to connect to generic netlink",
-				 __FUNCTION__);
-		nl_socket_free(nl_handle);
-		return -1;
-	}
+        if (genl_connect(nl_handle)) {
+            snprintf(errstr, LORCON_STATUS_MAX, "%s failed to connect to generic netlink",
+                    __FUNCTION__);
+            nl_socket_free(nl_handle);
+            return -1;
+        } 
+    } else {
+        nl_handle = (struct nl_sock *) (*handle);
+    }
 
 	if (genl_ctrl_alloc_cache(nl_handle, &nl_cache) != 0) {
 		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate "
@@ -258,10 +276,10 @@ int nl80211_setvapflag(const char *interface, char *errstr, int nflags, int *in_
 	return -1;
 #else
 
-	struct nl_sock *nl_handle;
-	struct nl_cache *nl_cache;
-	struct genl_family *nl80211;
-	struct nl_msg *msg;
+	struct nl_sock *nl_handle = NULL;
+	struct nl_cache *nl_cache = NULL;
+	struct genl_family *nl80211 = NULL;
+	struct nl_msg *msg = NULL;
 
 	if (nl80211_connect(interface, (void **) &nl_handle, 
 						 (void **) &nl_cache, (void **) &nl80211, errstr) < 0)
@@ -367,9 +385,9 @@ int nl80211_setchannel(const char *interface, int channel,
 	// so we catch it elsewhere
 	return -22;
 #else
-	struct nl_sock *nl_handle;
-	struct nl_cache *nl_cache;
-	struct genl_family *nl80211;
+	struct nl_sock *nl_handle = NULL;
+	struct nl_cache *nl_cache = NULL;
+	struct genl_family *nl80211 = NULL;
 
 	if (nl80211_connect(interface, (void **) &nl_handle, 
 						 (void **) &nl_cache, (void **) &nl80211, errstr) < 0)
@@ -500,7 +518,7 @@ int nl80211_get_chanlist(const char *interface, int *ret_num_chans, int **ret_ch
 			 "support, check the output of ./configure for why");
 	return NL80211_CHANLIST_NOT_NL80211;
 #else
-	void *handle, *cache, *family;
+	void *handle = NULL, *cache = NULL, *family = NULL;
 	struct nl_cb *cb;
 	int err;
 	struct nl_msg *msg;
