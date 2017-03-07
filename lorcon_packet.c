@@ -208,6 +208,20 @@ void lorcon_packet_set_channel(lorcon_packet_t *packet, int channel) {
 	packet->channel = channel;
 }
 
+void lorcon_packet_set_mcs(lorcon_packet_t *packet, unsigned int use_mcs, 
+        unsigned int mcs, unsigned int short_gi, unsigned int use_40mhz) {
+    packet->set_tx_mcs = use_mcs;
+    packet->tx_mcs_rate = mcs;
+    packet->tx_mcs_short_guard = short_gi;
+    packet->tx_mcs_40mhz = use_40mhz;
+}
+
+void lorcon_packet_set_retry(lorcon_packet_t *packet, unsigned int use_retry,
+        unsigned int retry_count) {
+    packet->set_tx_retry = use_retry;
+    packet->tx_retry_count = retry_count;
+}
+
 int lorcon_packet_decode(lorcon_packet_t *packet) {
 	avs_80211_1_header *avshdr = (avs_80211_1_header *) packet->packet_raw;
 	ppi_packet_header *ppihdr = (ppi_packet_header *) packet->packet_raw;

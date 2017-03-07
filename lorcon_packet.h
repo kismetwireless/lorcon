@@ -120,6 +120,18 @@ struct lorcon_packet {
 
     /* Interface that generated this packet */
     struct lorcon *interface;
+
+    /* If transmitting, do we set a transmit MCS rate? */
+    unsigned int set_tx_mcs;
+
+    /* If transmitting with MCS rates set, the rate, short GI, and 40mhz */
+    unsigned int tx_mcs_rate;
+    unsigned int tx_mcs_short_guard;
+    unsigned int tx_mcs_40mhz;
+
+    /* Automatic retry? */
+    unsigned int set_tx_retry;
+    unsigned int tx_retry_count;
 };
 typedef struct lorcon_packet lorcon_packet_t;
 
@@ -157,6 +169,14 @@ int lorcon_packet_decode(lorcon_packet_t *packet);
 
 /* Set channel field */
 void lorcon_packet_set_channel(lorcon_packet_t *packet, int channel);
+
+/* Set MCS rates */
+void lorcon_packet_set_mcs(lorcon_packet_t *packet, unsigned int use_mcs, 
+        unsigned int mcs, unsigned int short_gi, unsigned int use_40mhz);
+
+/* Set retry count */
+void lorcon_packet_set_retry(lorcon_packet_t *packet, 
+        unsigned int use_retry, unsigned int count);
 
 /* Is data freed when packet is freed (NO if sharing data block) */
 void lorcon_packet_set_freedata(lorcon_packet_t *packet, int freedata);
