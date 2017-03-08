@@ -50,9 +50,39 @@
 #include "ifcontrol_linux.h"
 #include "nl80211_control.h"
 #include "lorcon_int.h"
+#include "lorcon_packasm.h"
+
+#ifndef IEEE80211_RADIOTAP_FLAGS
+#define IEEE80211_RADIOTAP_FLAGS    (1 << 1)
+#endif
 
 #ifndef IEEE80211_RADIOTAP_F_FRAG
 #define IEEE80211_RADIOTAP_F_FRAG	0x08
+#endif
+
+#ifndef IEEE80211_RADIOTAP_TX_FLAGS
+#define IEEE80211_RADIOTAP_TX_FLAGS     (1 << 15)
+#define IEEE80211_RADIOTAP_F_TX_CTS     0x0002
+#define IEEE80211_RADIOTAP_F_TX_RTS     0x0004
+#define IEEE80211_RADIOTAP_F_TX_NOACK   0x0008
+#endif
+
+#ifndef IEEE80211_RADIOTAP_DATA_RETRIES
+#define IEEE80211_RADIOTAP_DATA_RETRIES (1 << 16)
+#endif
+
+/* Define the MCS transmit flags if we don't know them */
+#ifndef IEEE80211_RADIOTAP_MCS
+#define IEEE80211_RADIOTAP_MCS          (1 << 19)
+#define IEEE80211_RADIOTAP_MCS_HAVE_BW  0x01
+#define IEEE80211_RADIOTAP_MCS_HAVE_MCS 0x02
+#define IEEE80211_RADIOTAP_MCS_HAVE_GI  0x04
+#define IEEE80211_RADIOTAP_MCS_BW_MASK  0x03
+#define IEEE80211_RADIOTAP_MCS_BW_20    0
+#define IEEE80211_RADIOTAP_MCS_BW_40    1
+#define IEEE80211_RADIOTAP_MCS_BW_20L   2
+#define IEEE80211_RADIOTAP_MCS_BW_20U   3
+#define IEEE80211_RADIOTAP_MCS_SGI      0x04
 #endif
 
 struct mac80211_lorcon {
@@ -221,24 +251,65 @@ int mac80211_setmac_cb(lorcon_t *context, int mac_len, uint8_t *mac) {
 int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 	int ret;
 
+    /* Easiest to make structs and pack them here than 
+     * try to do it runtime */
+    typedef struct __attribute__((packed)) {
+        uint16_t version;
+        uint16_t length;
+        uint32_t bitmap;
+        uint8_t flags;
+    } _basic_rtap_hdr;
+
+    _basic_rtap_hdr basic_rtap_hdr = {
+        .version = 0,
+        .length = htons(sizeof(_basic_rtap_hdr)),
+        .bitmap = htonl(IEEE80211_RADIOTAP_FLAGS),
+        .flags = IEEE80211_RADIOTAP_F_FRAG
+    };
+
+
+    typedef struct __attribute__((packed)) { 
+        uint16_t version;
+        uint16_t length;
+        uint32_t bitmap;
+        uint8_t flags;
+        uint8_t mcs_known;
+        uint8_t mcs_flags;
+        uint8_t mcs_mcs;
+    } _mcs_rtap_hdr;
+
+    _mcs_rtap_hdr mcs_rtap_hdr = {
+        .version = 0,
+        .length = htons(sizeof(_mcs_rtap_hdr)),
+        .bitmap = htonl(IEEE80211_RADIOTAP_FLAGS | IEEE80211_RADIOTAP_MCS),
+        .flags = IEEE80211_RADIOTAP_F_FRAG,
+        .mcs_known = IEEE80211_RADIOTAP_MCS_HAVE_BW | 
+            IEEE80211_RADIOTAP_MCS_HAVE_MCS | 
+            IEEE80211_RADIOTAP_MCS_HAVE_GI,
+        .mcs_flags = 0,
+        .mcs_mcs = 0
+    };
+
+
+    uint8_t *rtap_hdr;
+
+#if 0
 	u_char rtap_hdr[] = {
-		/* rt version */
-		0x00, 0x00, 
-		/* rt len */
-		0x0e, 0x00, 
-		/* rt bitmap, flags, tx, rx */
-		0x02, 0xc0, 0x00, 0x00, 
-		/* Allow frgmentation */
-		IEEE80211_RADIOTAP_F_FRAG,
+		0x00, 0x00, /* version */
+		0x0e, 0x00, /* Length */
+		0x02, 0xc0, 0x00, 0x00, /* Bitmap TX flags, RX flags*/
+		IEEE80211_RADIOTAP_F_FRAG, /* rtap-level flags */
 		/* pad */
 		0x00,
 		/* rx and tx set to inject */
-		0x00, 0x00,
-		0x00, 0x00,
+		0x00, 0x00, /* RX flags */
+		0x00, 0x00, /* TX flags */
 	};
+#endif
 
 	u_char *bytes;
 	int len, freebytes;
+    int rtap_len;
 
 	struct iovec iov[2];
 
@@ -251,6 +322,24 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 		.msg_controllen = 0,
 		.msg_flags = 0,
 	};
+
+    if (packet->set_tx_mcs) {
+        rtap_hdr = (uint8_t *) &mcs_rtap_hdr;
+        rtap_len = sizeof(mcs_rtap_hdr);
+
+        if (packet->tx_mcs_short_guard) {
+            mcs_rtap_hdr.mcs_flags |= IEEE80211_RADIOTAP_MCS_SGI;
+        }
+
+        if (packet->tx_mcs_40mhz) {
+            mcs_rtap_hdr.mcs_flags |= IEEE80211_RADIOTAP_MCS_BW_40;
+        }
+
+        mcs_rtap_hdr.mcs_mcs = (uint8_t) packet->tx_mcs_rate;
+    } else {
+        rtap_hdr = (uint8_t *) &basic_rtap_hdr;
+        rtap_len = sizeof(basic_rtap_hdr);
+    }
 
 	if (packet->lcpa != NULL) {
 		len = lcpa_size(packet->lcpa);
@@ -267,8 +356,8 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 		bytes = (u_char *) packet->packet_raw;
 	}
 
-	iov[0].iov_base = &rtap_hdr;
-	iov[0].iov_len = sizeof(rtap_hdr);
+	iov[0].iov_base = rtap_hdr;
+	iov[0].iov_len = rtap_len;
 	iov[1].iov_base = bytes;
 	iov[1].iov_len = len;
 

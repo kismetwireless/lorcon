@@ -216,12 +216,6 @@ void lorcon_packet_set_mcs(lorcon_packet_t *packet, unsigned int use_mcs,
     packet->tx_mcs_40mhz = use_40mhz;
 }
 
-void lorcon_packet_set_retry(lorcon_packet_t *packet, unsigned int use_retry,
-        unsigned int retry_count) {
-    packet->set_tx_retry = use_retry;
-    packet->tx_retry_count = retry_count;
-}
-
 int lorcon_packet_decode(lorcon_packet_t *packet) {
 	avs_80211_1_header *avshdr = (avs_80211_1_header *) packet->packet_raw;
 	ppi_packet_header *ppihdr = (ppi_packet_header *) packet->packet_raw;
