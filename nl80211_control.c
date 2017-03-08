@@ -178,10 +178,10 @@ int nl80211_createvap(const char *interface, const char *newinterface, char *err
 	return -1;
 #else
 
-	struct nl_sock *nl_handle;
-	struct nl_cache *nl_cache;
-	struct genl_family *nl80211;
-	struct nl_msg *msg;
+	struct nl_sock *nl_handle = NULL;
+	struct nl_cache *nl_cache = NULL;
+	struct genl_family *nl80211 = NULL;
+	struct nl_msg *msg = NULL;
 
 	if (if_nametoindex(newinterface) > 0) 
 		return 1;
