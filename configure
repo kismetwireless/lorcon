@@ -12490,14 +12490,12 @@ main ()
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  havenetlink=yes KSLIBS="$KSLIBS $NLLIBS"
+  havenetlink=yes LIBS="$LIBS $NLLIBS"
 else
-  havenetlink=no
+  havenetlink=no LIBS="$OLIBS"
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-
-	LIBS="$OLIBS"
 else
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Missing libnl netlink library will not be able to control mac80211 vaps" >&5
 $as_echo "$as_me: WARNING: Missing libnl netlink library will not be able to control mac80211 vaps" >&2;}

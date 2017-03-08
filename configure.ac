@@ -288,9 +288,7 @@ if test "$havenetlink" = "yes"; then
 			NL80211_IFTYPE_MONITOR;
 			NL80211_CMD_NEW_INTERFACE;
 			return 0;
-			]])],[havenetlink=yes KSLIBS="$KSLIBS $NLLIBS"],[havenetlink=no])
-
-	LIBS="$OLIBS"
+			]])],[havenetlink=yes LIBS="$LIBS $NLLIBS"],[havenetlink=no LIBS="$OLIBS"])
 else
 	AC_MSG_WARN(Missing libnl netlink library will not be able to control mac80211 vaps)
 	havenetlink=no
