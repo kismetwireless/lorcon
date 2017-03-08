@@ -32,6 +32,11 @@
 
 #define LORCON_MAX_PACKET_LEN	8192
 
+#define LORCON_CHANNEL_BASIC    0
+#define LORCON_CHANNEL_HT20     1
+#define LORCON_CHANNEL_HT40P    2
+#define LORCON_CHANNEL_HT40M    3
+
 struct pcap;
 typedef struct pcap pcap_t;
 
@@ -113,6 +118,18 @@ int lorcon_set_datalink(lorcon_t *context, int dlt);
 /* Get/set channel/frequency */
 int lorcon_set_channel(lorcon_t *context, int channel);
 int lorcon_get_channel(lorcon_t *context);
+
+int lorcon_set_ht_channel(lorcon_t *context, int channel, int flags);
+int lorcon_get_ht_channel(lorcon_t *context, int *ret_flags);
+
+/* Parse a channel string into HT flags, populating ret_channel and
+ * ret_flags parameters.
+ *
+ * Returns:
+ *  0 - Failure
+ *  1 - Success
+ */
+int lorcon_parse_ht_channel(const char *in_chanstr, int *ret_channel, int *ret_flags);
 
 /* Get/set MAC address, returns length of MAC and allocates in **mac,
  * caller is responsible for freeing this memory.  Different PHY types

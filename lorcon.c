@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #include <pcap.h>
 
@@ -149,6 +150,7 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	context->packets_recv = 0;
 	context->dlt = -1;
 	context->channel = -1;
+    context->channel_ht_flags = LORCON_CHANNEL_BASIC;
 	context->errstr[0] = 0;
 
 	context->timeout_ms = 0;
@@ -164,6 +166,8 @@ lorcon_t *lorcon_create(const char *interface, lorcon_driver_t *driver) {
 	context->openinjmon_cb = NULL;
 	context->setchan_cb = NULL;
 	context->getchan_cb = NULL;
+    context->setchan_ht_cb = NULL;
+    context->getchan_ht_cb = NULL;
 	context->sendpacket_cb = NULL;
 	context->getpacket_cb = NULL;
 	context->setdlt_cb = NULL;
@@ -224,6 +228,60 @@ int lorcon_get_channel(lorcon_t *context) {
 	}
 
 	return (*(context->getchan_cb))(context);
+}
+
+int lorcon_set_ht_channel(lorcon_t *context, int channel, int flags) {
+    if (context->setchan_ht_cb == NULL) {
+        snprintf(context->errstr, LORCON_STATUS_MAX,
+                "Driver %s does not support HT channels", context->drivername);
+        return LORCON_ENOTSUPP;
+    }
+
+    return (*(context->setchan_ht_cb))(context, channel, flags);
+}
+
+int lorcon_get_ht_channel(lorcon_t *context, int *ret_flags) {
+    if (context->getchan_ht_cb == NULL) {
+        snprintf(context->errstr, LORCON_STATUS_MAX,
+                "Driver %s does not support getting HT channel", context->drivername);
+        return LORCON_ENOTSUPP;
+    }
+
+    return (*(context->getchan_ht_cb))(context, ret_flags);
+}
+
+int lorcon_parse_ht_channel(const char *in_chanstr, int *ret_channel, int *ret_flags) {
+    char chtype[16];
+    int r;
+
+    r = sscanf(in_chanstr, "%u%16s", ret_channel, chtype);
+
+    if (r == 0) {
+        /* Unable to parse */
+        *ret_channel = -1;
+        *ret_flags = 0;
+        return 0;
+    }
+
+    if (r == 1) {
+        /* No channel flags */
+        *ret_flags = LORCON_CHANNEL_BASIC;
+        return 1;
+    }
+
+    /* Parse flag types */
+    if (strcasecmp(chtype, "HT20") == 0) {
+        *ret_flags = LORCON_CHANNEL_HT20;
+        return 1;
+    } else if (strcasecmp(chtype, "HT40+") == 0) {
+        *ret_flags = LORCON_CHANNEL_HT40P;
+        return 1;
+    } else if (strcasecmp(chtype, "HT40-") == 0) {
+        *ret_flags = LORCON_CHANNEL_HT40M;
+        return 1;
+    }
+
+    return 0;
 }
 
 int lorcon_open_inject(lorcon_t *context) {

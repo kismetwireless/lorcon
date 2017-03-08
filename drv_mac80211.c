@@ -85,6 +85,12 @@
 #define IEEE80211_RADIOTAP_MCS_SGI      0x04
 #endif
 
+/* netlink channel modes */
+#define NL80211_CHAN_NO_HT              0
+#define NL80211_CHAN_HT20               0x1
+#define NL80211_CHAN_HT40MINUS          0x2
+#define NL80211_CHAN_HT40PLUS           0x3
+
 struct mac80211_lorcon {
 	void *nlhandle, *nlcache, *nlfamily;
 };
@@ -208,6 +214,25 @@ int mac80211_getchan_cb(lorcon_t *context) {
 	}
 
 	return ch;
+}
+
+int mac80211_setchan_ht_cb(lorcon_t *context, int channel, int flags) {
+	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
+    int nlflags = 0;
+
+    if (flags == LORCON_CHANNEL_HT20)
+        nlflags = NL80211_CHAN_HT20;
+    else if (flags == LORCON_CHANNEL_HT40P)
+        nlflags = NL80211_CHAN_HT40PLUS;
+    else if (flags == LORCON_CHANNEL_HT40M)
+        nlflags = NL80211_CHAN_HT40MINUS;
+
+	if (nl80211_setchannel_cache(context->vapname, extras->nlhandle, extras->nlfamily,
+								 channel, 0, context->errstr) < 0) {
+		return -1;
+	}
+
+	return 0;
 }
 
 int mac80211_getmac_cb(lorcon_t *context, uint8_t **mac) {
@@ -397,6 +422,8 @@ int drv_mac80211_init(lorcon_t *context) {
 
 	context->setchan_cb = mac80211_setchan_cb;
 	context->getchan_cb = mac80211_getchan_cb;
+
+    context->setchan_ht_cb = mac80211_setchan_ht_cb;
 
 	context->getmac_cb = mac80211_getmac_cb;
 	context->setmac_cb = mac80211_setmac_cb;

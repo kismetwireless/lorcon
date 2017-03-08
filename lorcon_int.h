@@ -64,6 +64,7 @@ struct lorcon {
 	int dlt;
 
 	int channel;
+    int channel_ht_flags;
 
 	char errstr[LORCON_STATUS_MAX];
 
@@ -88,6 +89,9 @@ struct lorcon {
 
 	int (*setchan_cb)(lorcon_t *context, int chan);
 	int (*getchan_cb)(lorcon_t *context);
+
+	int (*setchan_ht_cb)(lorcon_t *context, int chan, int flags);
+	int (*getchan_ht_cb)(lorcon_t *context, int *ret_flags);
 
 	int (*sendpacket_cb)(lorcon_t *context, lorcon_packet_t *packet);
 	int (*getpacket_cb)(lorcon_t *context, lorcon_packet_t **packet);
