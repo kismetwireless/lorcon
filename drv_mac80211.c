@@ -262,8 +262,8 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
     _basic_rtap_hdr basic_rtap_hdr = {
         .version = 0,
-        .length = htons(sizeof(_basic_rtap_hdr)),
-        .bitmap = htonl(IEEE80211_RADIOTAP_FLAGS),
+        .length = sizeof(_basic_rtap_hdr),
+        .bitmap = IEEE80211_RADIOTAP_FLAGS,
         .flags = IEEE80211_RADIOTAP_F_FRAG
     };
 
@@ -280,8 +280,8 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
     _mcs_rtap_hdr mcs_rtap_hdr = {
         .version = 0,
-        .length = htons(sizeof(_mcs_rtap_hdr)),
-        .bitmap = htonl(IEEE80211_RADIOTAP_FLAGS | IEEE80211_RADIOTAP_MCS),
+        .length = sizeof(_mcs_rtap_hdr),
+        .bitmap = IEEE80211_RADIOTAP_FLAGS | IEEE80211_RADIOTAP_MCS,
         .flags = IEEE80211_RADIOTAP_F_FRAG,
         .mcs_known = IEEE80211_RADIOTAP_MCS_HAVE_BW | 
             IEEE80211_RADIOTAP_MCS_HAVE_MCS | 
