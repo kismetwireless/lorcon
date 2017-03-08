@@ -228,7 +228,7 @@ int mac80211_setchan_ht_cb(lorcon_t *context, int channel, int flags) {
         nlflags = NL80211_CHAN_HT40MINUS;
 
 	if (nl80211_setchannel_cache(context->vapname, extras->nlhandle, extras->nlfamily,
-								 channel, 0, context->errstr) < 0) {
+								 channel, nlflags, context->errstr) < 0) {
 		return -1;
 	}
 
