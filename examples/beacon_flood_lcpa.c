@@ -5,6 +5,9 @@
 	simple IEEE 802.11 beacon flooder using LORCON2's 
 	packet assembly functionality
 
+    also demonstrates setting MCS values and HT channel
+    parsing
+
 */
 
 #include <stdio.h>
@@ -20,6 +23,9 @@ void usage(char *argv[]) {
 	printf("\t-s <SSID>\tSSID to flood\n");
 	printf("\t-i <int> \tInterface\n");
 	printf("\t-c <channel>\tChannel\n");
+    printf("\t-m <mcs>\tTransmit frames at a specific MCS\n");
+    printf("\t-g          \tEnable Short-GI frame timing\n");
+    printf("\t-H          \tTransmit frames at HT40\n");
 	printf("\nExample:\n");
 	printf("\t%s -s brad -i wlan0 -c 1\n\n",argv[0]);
 }
@@ -27,8 +33,12 @@ int main(int argc, char *argv[]) {
 
 	char *interface = NULL, *ssid = NULL;
 	int c;
-	uint8_t channel;
-	unsigned int count=0;
+    int channel, ch_flags;
+	unsigned int count = 0;
+
+    int mcs = -1;
+    int shortgi = 0;
+    int ht40 = 0;
 
 	lorcon_driver_t *drvlist, *driver; // Needed to set up interface/context
 	lorcon_t *context; // LORCON context
@@ -64,7 +74,7 @@ int main(int argc, char *argv[]) {
 		This handles all of the command line arguments
 	*/
 	
-	while ((c = getopt(argc, argv, "i:s:hc:")) != EOF) {
+	while ((c = getopt(argc, argv, "i:s:hc:m:Hg")) != EOF) {
 		switch (c) {
 			case 'i': 
 				interface = strdup(optarg);
@@ -78,10 +88,44 @@ int main(int argc, char *argv[]) {
 				}
 				break;
 			case 'c':
-				channel = atoi(optarg);
+                if (lorcon_parse_ht_channel(optarg, &channel, &ch_flags) == 0) {
+                    printf("ERROR: Unable to parse channel\n");
+                    return -1;
+                }
 				break;
+            case 'm':
+                if (sscanf(optarg, "%d", &mcs) != 1) {
+                    printf("ERROR: Unable to parse MCS value\n");
+                    return -1;
+                }
+
+                if (mcs < 0 || mcs > 15) {
+                    printf("ERROR: Expected MCS between 0 and 15\n");
+                    return -1;
+                }
+
+                break;
+
+            case 'H':
+                ht40 = 1;
+
+                if (mcs < 0)
+                    mcs = 0;
+
+                break;
+
+            case 'g':
+
+                shortgi = 1;
+
+                if (mcs < 0)
+                    mcs = 0;
+
+                break;
+
 			case 'h':
 				usage(argv);
+                return -1;
 				break;
 			default:
 				usage(argv);
@@ -125,8 +169,14 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Set the channel we'll be injecting on
-	lorcon_set_channel(context, channel);
-	printf("[+]\t Using channel: %d\n\n",channel);
+	lorcon_set_ht_channel(context, channel, ch_flags);
+
+	printf("[+]\t Using channel: %d flags %d\n\n", channel, ch_flags);
+
+    if (mcs != -1) {
+        printf("[+]\t Using MCS %u Short-GI %u HT40 %u\n",
+                mcs, shortgi, ht40);
+    }
 
 	/* 
 		The following is the packet creation and sending code
@@ -162,6 +212,10 @@ int main(int argc, char *argv[]) {
 	
 		// Convert the LORCON metapack to a LORCON packet for sending
 		txpack = (lorcon_packet_t *) lorcon_packet_from_lcpa(context, metapack);
+
+        if (mcs != -1) {
+            lorcon_packet_set_mcs(txpack, 1, mcs, shortgi, ht40);
+        }
 		
 		// Send and exit if error
 		if ( lorcon_inject(context,txpack) < 0 ) 
