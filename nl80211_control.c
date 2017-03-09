@@ -83,36 +83,25 @@ static inline int __genl_ctrl_alloc_cache(struct nl_sock *h, struct nl_cache **c
 #endif
 
 int ChanToFreq(int in_chan) {
-   // 80211 frequencies to channels
-   // Stolen from Linux net/wireless/util.c
+   /* revamped from iw */
    if (in_chan == 14)
        return 2484;
-   else if (in_chan < 14)
-       return 2407 + in_chan * 5;
-   if (in_chan >= 182 && in_chan <= 196)
-       return 4000 + in_chan * 5;
-   else
-       return 5000 + in_chan * 5;
 
-   return in_chan;
+   if (in_chan < 14)
+       return 2407 + in_chan * 5;
+
+   return (in_chan + 1000) * 5;
 }
 
 int FreqToChan(int in_freq) {
-	// 80211 frequencies to channels
-	// Stolen from Linux net/wireless/util.c
-	/* see 802.11 17.3.8.3.2 and Annex J */
-	if (in_freq == 2484)
-		return 14;
-	else if (in_freq < 2484)
-		return (in_freq - 2407) / 5;
-	else if (in_freq >= 4910 && in_freq <= 4980)
-		return (in_freq - 4000) / 5;
-	else if (in_freq <= 45000) /* DMG band lower limit */
-		return (in_freq - 5000) / 5;
-	else if (in_freq >= 58320 && in_freq <= 64800)
-		return (in_freq - 56160) / 2160;
-	else
-		return in_freq;
+    /* revamped from iw */
+    if (in_freq == 2484)
+        return 14;
+
+    if (in_freq < 2484)
+        return (in_freq - 2407) / 5;
+
+    return in_freq / 5 - 1000;
 }
 
 int nl80211_connect(const char *interface, void **handle, void **cache,
@@ -336,11 +325,6 @@ int nl80211_setchannel_cache(const char *interface, void *handle,
 	struct nl_msg *msg;
 	int ret = 0;
 
-	int chanmode[] = {
-		NL80211_CHAN_NO_HT, NL80211_CHAN_HT20, 
-		NL80211_CHAN_HT40PLUS, NL80211_CHAN_HT40MINUS
-	};
-
 	if (chmode > 4) {
 		snprintf(errstr, LORCON_STATUS_MAX, "Invalid channel mode\n");
 		return -1;
@@ -356,7 +340,7 @@ int nl80211_setchannel_cache(const char *interface, void *handle,
 				NL80211_CMD_SET_WIPHY, 0);
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(interface));
 	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, ChanToFreq(channel));
-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, chanmode[chmode]);
+	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, chmode);
 
 	if ((ret = nl_send_auto_complete(nl_handle, msg)) >= 0) {
 		if ((ret = nl_wait_for_ack(nl_handle)) < 0) 

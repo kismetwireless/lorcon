@@ -87,9 +87,9 @@
 
 /* netlink channel modes */
 #define NL80211_CHAN_NO_HT              0
-#define NL80211_CHAN_HT20               0x1
-#define NL80211_CHAN_HT40MINUS          0x2
-#define NL80211_CHAN_HT40PLUS           0x3
+#define NL80211_CHAN_HT20               1
+#define NL80211_CHAN_HT40MINUS          2
+#define NL80211_CHAN_HT40PLUS           3
 
 struct mac80211_lorcon {
 	void *nlhandle, *nlcache, *nlfamily;
@@ -220,12 +220,15 @@ int mac80211_setchan_ht_cb(lorcon_t *context, int channel, int flags) {
 	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
     int nlflags = 0;
 
-    if (flags == LORCON_CHANNEL_HT20)
+    if (flags == LORCON_CHANNEL_HT20) {
         nlflags = NL80211_CHAN_HT20;
-    else if (flags == LORCON_CHANNEL_HT40P)
+    } else if (flags == LORCON_CHANNEL_HT40P) {
+        printf("40+\n");
         nlflags = NL80211_CHAN_HT40PLUS;
-    else if (flags == LORCON_CHANNEL_HT40M)
+    } else if (flags == LORCON_CHANNEL_HT40M) {
+        printf("40-\n");
         nlflags = NL80211_CHAN_HT40MINUS;
+    }
 
 	if (nl80211_setchannel_cache(context->vapname, extras->nlhandle, extras->nlfamily,
 								 channel, nlflags, context->errstr) < 0) {
