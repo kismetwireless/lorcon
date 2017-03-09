@@ -7,7 +7,7 @@ import sys
 import subprocess
 
 
-tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-Tfields", "-r", sys.argv[1], "wlan.fc.type_subtype == 0x0020"],
+tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-Tfields", "-r", sys.argv[1], "wlan.fc.type_subtype == 0x0028"],
         stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 
 for l in tshark.stdout:
