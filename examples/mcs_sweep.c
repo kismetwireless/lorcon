@@ -203,7 +203,8 @@ int main(int argc, char *argv[]) {
 
             metapack = lcpa_init();
 
-            lcpf_data(metapack, 0x42, 100 * PAYLOAD_LEN, dmac, mac, mac, NULL, 0, count);
+            lcpf_qos_data(metapack, 0x42, 100 * PAYLOAD_LEN, dmac, mac, mac, NULL, 0, count);
+            lcpf_qosheaders(metapack, 0, 0, 0);
             lcpa_append(metapack, "PAYLOAD", PAYLOAD_LEN, payload);
 
             // Convert the LORCON metapack to a LORCON packet for sending
