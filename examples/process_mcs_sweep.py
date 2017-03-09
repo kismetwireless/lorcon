@@ -176,16 +176,16 @@ for m in range(0, 16):
                 if gi:
                     gistr = " Short-GI"
                 else:
-                    gistr = "         "
+                    gistr = " "
 
                 perc = (len(resultmap[m][ht][gi][l]) / int(results.count)) * 100
 
-                print "MCS {}\t{}\t{}\t{}mbit\nLocation {}\t{:.2f}%".format(
+                print "MCS {:15}{:15}{:15}{:15}{:15}{:.2f}%".format(
                         m,
                         htstr,
                         gistr,
-                        ratemap[m][ht][gi],
-                        l,
+                        "{} mbit".format(ratemap[m][ht][gi]),
+                        "Location {}".format(l),
                         perc)
 
 sys.exit(1)
