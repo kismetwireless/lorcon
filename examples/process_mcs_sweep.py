@@ -174,13 +174,13 @@ for m in range(0, 16):
                     htstr = "20MHz"
 
                 if gi:
-                    gistr = " Short-GI"
+                    gistr = "Short-GI"
                 else:
-                    gistr = " "
+                    gistr = ""
 
                 perc = (len(resultmap[m][ht][gi][l]) / int(results.count)) * 100
 
-                print "MCS {:15}{:15}{:15}{:15}{:15}{:.2f}%".format(
+                print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
                         m,
                         htstr,
                         gistr,
