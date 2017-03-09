@@ -22,6 +22,7 @@ if results.count == None:
     print "ERROR: Expected --count for total # of packets per test"
     sys.exit(1)
 
+# Build the results table
 resultmap = {}
 
 for m in range(0, 16):
@@ -34,42 +35,6 @@ for m in range(0, 16):
     resultmap[m][0][1] = {}
     resultmap[m][1][0] = {}
     resultmap[m][1][1] = {}
-
-tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-Tfields", "-r", results.pcap, "wlan.fc.type_subtype == 0x0028"],
-        stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-
-for l in tshark.stdout:
-    v = l.split(':');
-
-    rawmcs = int(v[1], 16)
-
-    ht = (rawmcs & (1 << 7))
-    gi = (rawmcs & (1 << 6))
-    mcs = (rawmcs & 0x3F)
-
-    location = int(v[2]);
-
-    # Convert to int, and endian flip
-    lpacket = int("{}{}{}".format(v[3], v[4], v[5]), 16)
-
-    if ht != 0:
-        htstr = "40MHz"
-        ht = 1
-    else:
-        htstr = "20MHz"
-
-    if gi != 0:
-        gistr = " Short-GI"
-        gi = 1
-    else:
-        gistr = ""
-
-    #print "Packet {} Location {} MCS {} {}{}".format(lpacket, location, mcs, htstr, gistr)
-
-    if not location in resultmap[mcs][ht][gi]:
-        resultmap[mcs][ht][gi][location] = {}
-
-    resultmap[mcs][ht][gi][location][lpacket] = 1
 
 # Build the MCS rate table
 ratemap = {}
@@ -164,21 +129,71 @@ ratemap[15][0][1] = 144.4
 ratemap[15][1][0] = 270
 ratemap[15][1][1] = 300
 
+tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-e", "radiotap.datarate", "-Tfields", "-E", "separator=,", "-r", results.pcap, "wlan.fc.type_subtype == 0x0028"],
+        stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+
+for l in tshark.stdout:
+    f = l.split(",");
+    v = f[0].split(':');
+    r = float(f[1])
+
+    rawmcs = int(v[1], 16)
+
+    ht = (rawmcs & (1 << 7))
+    gi = (rawmcs & (1 << 6))
+    mcs = (rawmcs & 0x3F)
+
+    location = int(v[2]);
+
+    # Convert to int, and endian flip
+    lpacket = int("{}{}{}".format(v[3], v[4], v[5]), 16)
+
+    if ht != 0:
+        htstr = "40MHz"
+        ht = 1
+    else:
+        htstr = "20MHz"
+
+    if gi != 0:
+        gistr = " Short-GI"
+        gi = 1
+    else:
+        gistr = ""
+
+    # print "Packet {} Location {} MCS {} {}{}".format(lpacket, location, mcs, htstr, gistr)
+
+    # Only accept packets received at the advertised rate
+    if round(r, 1) != float(ratemap[mcs][ht][gi]):
+        #print "rtap {} != mcs {} {} {} {}".format(round(r, 1), float(ratemap[mcs][ht][gi]), mcs, ht, gi)
+        continue
+
+    if not location in resultmap[mcs][ht][gi]:
+        resultmap[mcs][ht][gi][location] = {}
+
+    resultmap[mcs][ht][gi][location][lpacket] = 1
+
 for m in range(0, 16):
     for ht in range(0, 2):
         for gi in range(0, 2):
+            if ht:
+                htstr = "40MHz"
+            else:
+                htstr = "20MHz"
+
+            if gi:
+                gistr = "Short-GI"
+            else:
+                gistr = ""
+
+            if (len(resultmap[m][ht][gi]) == 0):
+                print "ERROR: No data found for MCS {} {} {}".format(
+                        m,
+                        htstr,
+                        gistr
+                        )
+
             for l in resultmap[m][ht][gi]:
-                if ht:
-                    htstr = "40MHz"
-                else:
-                    htstr = "20MHz"
-
-                if gi:
-                    gistr = "Short-GI"
-                else:
-                    gistr = ""
-
-                perc = (len(resultmap[m][ht][gi][l]) / int(results.count)) * 100
+                perc = (float(len(resultmap[m][ht][gi][l])) / float(results.count)) * 100
 
                 print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
                         m,
