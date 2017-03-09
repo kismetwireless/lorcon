@@ -135,6 +135,15 @@ void lcpf_data(struct lcpa_metapack *pack, unsigned int fcflags,
 		fcflags, duration, mac1, mac2, mac3, mac4, fragment, sequence);
 }
 
+void lcpf_qos_data(struct lcpa_metapack *pack, unsigned int fcflags, 
+		unsigned int duration, uint8_t *mac1, uint8_t *mac2, 
+		uint8_t *mac3, uint8_t *mac4, unsigned int fragment, 
+		unsigned int sequence) {
+
+	lcpf_80211headers(pack, WLAN_FC_TYPE_DATA, WLAN_FC_SUBTYPE_QOSDATA,
+		fcflags, duration, mac1, mac2, mac3, mac4, fragment, sequence);
+}
+
 void lcpf_80211headers(struct lcpa_metapack *pack, unsigned int type, 
 		unsigned int subtype, unsigned int fcflags, 
 		unsigned int duration,

@@ -143,4 +143,10 @@ void lcpf_data(struct lcpa_metapack *pack, unsigned int fcflags,
 		unsigned int duration, uint8_t *mac1, uint8_t *mac2, 
 		uint8_t *mac3, uint8_t *mac4, unsigned int fragment, 
 		unsigned int sequence);
+
+/* QOS Data frame */
+void lcpf_qos_data(struct lcpa_metapack *pack, unsigned int fcflags, 
+		unsigned int duration, uint8_t *mac1, uint8_t *mac2, 
+		uint8_t *mac3, uint8_t *mac4, unsigned int fragment, 
+		unsigned int sequence);
 #endif
