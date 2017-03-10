@@ -186,11 +186,13 @@ for m in range(0, 16):
                 gistr = ""
 
             if (len(resultmap[m][ht][gi]) == 0):
-                print "ERROR: No data found for MCS {} {} {}".format(
+                print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
                         m,
                         htstr,
-                        gistr
-                        )
+                        gistr,
+                        "{} mbit".format(ratemap[m][ht][gi]),
+                        "Location --",
+                        0)
 
             for l in resultmap[m][ht][gi]:
                 perc = (float(len(resultmap[m][ht][gi][l])) / float(results.count)) * 100
