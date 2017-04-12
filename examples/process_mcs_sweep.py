@@ -129,7 +129,7 @@ ratemap[15][0][1] = 144.4
 ratemap[15][1][0] = 270
 ratemap[15][1][1] = 300
 
-tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-e", "radiotap.datarate", "-Tfields", "-E", "separator=,", "-r", results.pcap, "wlan.fc.type_subtype == 0x0028"],
+tshark = subprocess.Popen(["tshark", "-e", "wlan.ta", "-e", "radiotap.datarate", "-Tfields", "-E", "separator=,", "-r", results.pcap, "wlan.fc.type_subtype == 0x0028 && wlan.da == 00:de:ad:be:ef:00"],
         stdout=subprocess.PIPE, stdin=subprocess.PIPE)
 
 for l in tshark.stdout:
