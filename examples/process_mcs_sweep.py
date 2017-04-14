@@ -143,7 +143,7 @@ for l in tshark.stdout:
     gi = (rawmcs & (1 << 6))
     mcs = (rawmcs & 0x3F)
 
-    location = int(v[2]);
+    location = int(v[2], 16);
 
     # Convert to int, and endian flip
     lpacket = int("{}{}{}".format(v[3], v[4], v[5]), 16)
