@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	lorcon_packet_t *txpack;
 
     /* delay interval */
-    unsigned int interval = 100;
+    unsigned int interval = 1;
 
     /* Iterations through HT and GI */
     int mcs_iter = 0;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     int gi_iter = 0;
 	unsigned int count = 0;
 
-    unsigned int totalcount = 0;
+    unsigned int totalcount = 1;
 
 	/* BSSID and source MAC address */
 	uint8_t mac[6] = "\x00\x01\x02\x03\x04\x05";
@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
 				break;
 			default:
 				usage(argv);
+                return -1;
 				break;
 			}
 	}
@@ -193,11 +194,12 @@ int main(int argc, char *argv[]) {
 
             memset(payload, 0, PAYLOAD_LEN);
 
-            snprintf((char *) payload, PAYLOAD_LEN, "MCS %u %s%s Packet %u Location %u Name %s",
+            snprintf((char *) payload, PAYLOAD_LEN, "MCS %u %s%s Packet %u of %u Location %u Name %s",
                     mcs_iter,
                     ht_iter ? "40MHz" : "20MHz",
                     gi_iter ? " short-gi": "",
                     count,
+                    npackets,
                     lcode,
                     lname == NULL ? "n/a" : lname);
 
