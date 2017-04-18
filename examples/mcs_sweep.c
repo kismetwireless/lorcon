@@ -169,6 +169,9 @@ int main(int argc, char *argv[]) {
         mac[0] = 0x00; mac[1] = 0xDE; mac[2] = 0xAD;
         mac[3] = 0xBE; mac[4] = 0xEF; mac[5] = 0xFF;
 
+        // set the location code
+        mac[5] = lcode & 0xFF;
+
         snprintf((char *) payload, PAYLOAD_LEN, "Non-MCS Calibration Packet %u of %u Location %u Name %s",
                 count,
                 npackets,
