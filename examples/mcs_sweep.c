@@ -165,12 +165,14 @@ int main(int argc, char *argv[]) {
     for (count = 0; count < npackets; count++) {
         memset(mac, 0, 6);
 
-        // Fixed header for calibration
-        mac[0] = 0x00; mac[1] = 0xDE; mac[2] = 0xAD;
-        mac[3] = 0xBE; mac[4] = 0xEF; mac[5] = 0xFF;
+        // Set the packet # to network-endian, then we clobber the
+        // first 8 bits with the location code
+        *mac_counter = htonl(count);
+
+        mac[1] = 0xFF;
 
         // set the location code
-        mac[5] = lcode & 0xFF;
+        mac[2] = lcode & 0xFF;
 
         snprintf((char *) payload, PAYLOAD_LEN, "Non-MCS Calibration Packet %u of %u Location %u Name %s",
                 count,

@@ -36,6 +36,11 @@ for m in range(0, 16):
     resultmap[m][1][0] = {}
     resultmap[m][1][1] = {}
 
+# Calibration false MCS
+resultmap[63] = {}
+resultmap[63][1] = {}
+resultmap[63][1][1] = {}
+
 # Build the MCS rate table
 ratemap = {}
 for m in range(0, 16):
@@ -163,7 +168,7 @@ for l in tshark.stdout:
     # print "Packet {} Location {} MCS {} {}{}".format(lpacket, location, mcs, htstr, gistr)
 
     # Only accept packets received at the advertised rate
-    if round(r, 1) != float(ratemap[mcs][ht][gi]):
+    if mcs != 63 and round(r, 1) != float(ratemap[mcs][ht][gi]):
         #print "rtap {} != mcs {} {} {} {}".format(round(r, 1), float(ratemap[mcs][ht][gi]), mcs, ht, gi)
         continue
 
@@ -171,6 +176,15 @@ for l in tshark.stdout:
         resultmap[mcs][ht][gi][location] = {}
 
     resultmap[mcs][ht][gi][location][lpacket] = 1
+
+# Extract the calibration packets
+if 63 in resultmap:
+    for l in resultmap[63][1][1]:
+        perc = (float(len(resultmap[63][1][1][l])) / float(results.count)) * 100
+
+        print "Calibration 1mbit                {:12} {:.2f}%".format(
+                "Location {}".format(l),
+                perc)
 
 for m in range(0, 16):
     for ht in range(0, 2):
