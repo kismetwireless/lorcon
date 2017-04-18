@@ -161,6 +161,42 @@ int main(int argc, char *argv[]) {
 
 	printf("[+]\t Using channel: %d flags %d\n\n", channel, ch_flags);
 
+    printf("\n[.]\tNon-MCS Calibration\n");
+    for (count = 0; count < npackets; count++) {
+        memset(mac, 0, 6);
+
+        // Fixed header for calibration
+        mac[0] = 0x00; mac[1] = 0xDE; mac[2] = 0xAD;
+        mac[3] = 0xBE; mac[4] = 0xEF; mac[5] = 0xFF;
+
+        snprintf((char *) payload, PAYLOAD_LEN, "Non-MCS Calibration Packet %u of %u Location %u Name %s",
+                count,
+                npackets,
+                lcode,
+                lname == NULL ? "n/a" : lname);
+
+        metapack = lcpa_init();
+
+        lcpf_qos_data(metapack, 0x42, 100 * PAYLOAD_LEN, dmac, mac, mac, NULL, 0, count);
+        lcpf_qosheaders(metapack, 0, 0, 0);
+        lcpa_append(metapack, "PAYLOAD", PAYLOAD_LEN, payload);
+
+        // Convert the LORCON metapack to a LORCON packet for sending
+        txpack = (lorcon_packet_t *) lorcon_packet_from_lcpa(context, metapack);
+
+        if (lorcon_inject(context,txpack) < 0 ) 
+            return -1;
+
+        usleep(interval * 1000);
+
+        printf("\033[K\r");
+        printf("[+] Sent %d frames, Hit CTRL + C to stop...", totalcount);
+        fflush(stdout);
+        totalcount++;
+
+        lcpa_free(metapack); 
+    }
+
     // For each MCS at 20 and 40mhz
     for (mcs_iter = 0; mcs_iter <= 15; ) {
         printf("\n[.]\tMCS %u %s %s\n",
@@ -168,8 +204,7 @@ int main(int argc, char *argv[]) {
                 gi_iter ? "short-gi" : "");
 
         for (count = 0; count < npackets; count++) {
-            // Assemble the pseudomac header
-            memset(mac, 0, 6);
+            memset(payload, 0, PAYLOAD_LEN);
 
             // Set the packet # to network-endian, then we clobber the
             // first 8 bits with the location code
@@ -184,13 +219,6 @@ int main(int argc, char *argv[]) {
 
             // set the location code
             mac[2] = lcode & 0xFF;
-
-            /*
-            for (int z = 0; z < 6; z++) {
-                printf("%02X ", mac[z] & 0xFF);
-            }
-            printf("\n");
-            */
 
             memset(payload, 0, PAYLOAD_LEN);
 
