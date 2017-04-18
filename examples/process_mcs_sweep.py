@@ -114,13 +114,13 @@ ratemap[12][0][1] = 86.7
 ratemap[12][1][0] = 162
 ratemap[12][1][1] = 180
 
-ratemap[13][0][0] = 105
+ratemap[13][0][0] = 104
 ratemap[13][0][1] = 115.6
 ratemap[13][1][0] = 216
 ratemap[13][1][1] = 240
 
 ratemap[14][0][0] = 117
-ratemap[14][0][1] = 130.3
+ratemap[14][0][1] = 130
 ratemap[14][1][0] = 243
 ratemap[14][1][1] = 270
 
