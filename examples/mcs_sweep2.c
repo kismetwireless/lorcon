@@ -78,8 +78,8 @@ int main(int argc, char *argv[]) {
     unsigned int totalcount = 1;
 
     uint8_t *smac;
-    
-    uint8_t dmac[6] = "\xFF\xFF\xFF\xFF\xFF\xFF";
+
+    uint8_t *bmac = "\x00\xDE\xAD\xBE\xEF\x00";
 
     uint8_t encoded_payload[10];
     uint32_t *encoded_counter = (uint32_t *) (encoded_payload + 2);
@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
 		gettimeofday(&time, NULL);
 		timestamp = time.tv_sec * 1000000 + time.tv_usec;
 
-        lcpf_beacon(metapack, smac, smac, 
+        lcpf_beacon(metapack, smac, bmac, 
                 0x00, 0x00, 0x00, 0x00, 
                 timestamp, beacon_interval, capabilities);
         lcpf_add_ie(metapack, 0, strlen("MCS_TEST"), "MCS_TEST");
@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
             gettimeofday(&time, NULL);
             timestamp = time.tv_sec * 1000000 + time.tv_usec;
 
-            lcpf_beacon(metapack, smac, smac, 
+            lcpf_beacon(metapack, smac, bmac, 
                     0x00, 0x00, 0x00, 0x00, 
                     timestamp, beacon_interval, capabilities);
             lcpf_add_ie(metapack, 0, strlen("MCS_TEST"), "MCS_TEST");
