@@ -212,11 +212,12 @@ int main(int argc, char *argv[]) {
         encoded_payload[0] = 0xFF;
         encoded_payload[1] = lcode & 0xFF;
 
-        snprintf((char *) payload, PAYLOAD_LEN, "Non-MCS Calibration Packet %u of %u Location %u Name %s",
+        snprintf((char *) payload, PAYLOAD_LEN, "Non-MCS Calibration Packet %u of %u Location %u Name %s Session %u",
                 count,
                 npackets,
                 lcode,
-                lname == NULL ? "n/a" : lname);
+                lname == NULL ? "n/a" : lname,
+                session_id);
 
         metapack = lcpa_init();
 
@@ -229,7 +230,7 @@ int main(int argc, char *argv[]) {
                 timestamp, beacon_interval, capabilities);
         lcpf_add_ie(metapack, 0, strlen("MCS_TEST"), "MCS_TEST");
 
-        lcpf_add_ie(metapack, 10, 10, encoded_payload);
+        lcpf_add_ie(metapack, 10, 14, encoded_payload);
         lcpf_add_ie(metapack, 11, strlen((char *) payload), payload);
 
         // Convert the LORCON metapack to a LORCON packet for sending
@@ -272,14 +273,15 @@ int main(int argc, char *argv[]) {
             *encoded_max = htonl(npackets);
             *encoded_session = htonl(session_id);
 
-            snprintf((char *) payload, PAYLOAD_LEN, "MCS %u %s%s Packet %u of %u Location %u Name %s",
+            snprintf((char *) payload, PAYLOAD_LEN, "MCS %u %s%s Packet %u of %u Location %u Name %s Session %u",
                     mcs_iter,
                     ht_iter ? "40MHz" : "20MHz",
                     gi_iter ? " short-gi": "",
                     count,
                     npackets,
                     lcode,
-                    lname == NULL ? "n/a" : lname);
+                    lname == NULL ? "n/a" : lname,
+                    session_id);
 
 
             metapack = lcpa_init();
@@ -293,7 +295,7 @@ int main(int argc, char *argv[]) {
                     timestamp, beacon_interval, capabilities);
             lcpf_add_ie(metapack, 0, strlen("MCS_TEST"), "MCS_TEST");
 
-            lcpf_add_ie(metapack, 10, 10, encoded_payload);
+            lcpf_add_ie(metapack, 10, 14, encoded_payload);
             lcpf_add_ie(metapack, 11, strlen((char *) payload), payload);
 
             // Convert the LORCON metapack to a LORCON packet for sending
