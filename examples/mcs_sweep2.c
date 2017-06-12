@@ -9,7 +9,7 @@
 
     Packets are sent with 2 custom IE tags:
 
-    ie 10, length 10
+    ie 10, length 14
         Packed byte field encoding:
 
             Byte 0 - MCS rate and flags, where
@@ -21,6 +21,8 @@
                 32 bit current packet count
             Bytes 6-9
                 32 bit maximum packet count
+            Bytes 10-13
+                32 bit random session id
 
     ie 11, length 64
         Text field containing a text description of the packed field
@@ -81,9 +83,10 @@ int main(int argc, char *argv[]) {
 
     uint8_t *bmac = "\x00\xDE\xAD\xBE\xEF\x00";
 
-    uint8_t encoded_payload[10];
+    uint8_t encoded_payload[14];
     uint32_t *encoded_counter = (uint32_t *) (encoded_payload + 2);
     uint32_t *encoded_max = (uint32_t *) (encoded_payload + 6);
+    uint32_t *encoded_session = (uint32_t *) (encoded_payload + 10);
 
     uint8_t payload[PAYLOAD_LEN];
 
@@ -96,6 +99,10 @@ int main(int argc, char *argv[]) {
 
 	// Capabilities
 	int capabilities = 0x0421;
+
+    // Session ID
+    uint32_t session_id;
+    FILE *urandom;
 
 	printf ("%s - 802.11 MCS Sweeper\n", argv[0]);
 	printf ("-----------------------------------------------------\n\n");
@@ -152,6 +159,14 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
+    if ((urandom = fopen("/dev/urandom", "rb")) == NULL) {
+        printf("ERROR:  Could not open urandom for session id: %s\n", strerror(errno));
+        return -1;
+    }
+
+    fread(&session_id, 4, 1, urandom);
+    fclose(urandom);
+
 	printf("[+] Using interface %s\n",interface);
 	
 	if ((driver = lorcon_auto_driver(interface)) == NULL) {
@@ -188,10 +203,11 @@ int main(int argc, char *argv[]) {
 
     printf("\n[.]\tNon-MCS Calibration\n");
     for (count = 0; count < npackets; count++) {
-        memset(encoded_payload, 0, 10);
+        memset(encoded_payload, 0, 14);
 
         *encoded_counter = htonl(count);
         *encoded_max = htonl(npackets);
+        *encoded_session = htonl(session_id);
 
         encoded_payload[0] = 0xFF;
         encoded_payload[1] = lcode & 0xFF;
@@ -240,6 +256,7 @@ int main(int argc, char *argv[]) {
 
         for (count = 0; count < npackets; count++) {
             memset(payload, 0, PAYLOAD_LEN);
+            memset(encoded_payload, 0, 14);
 
             // Set MCS count
             encoded_payload[0] = mcs_iter;
@@ -251,10 +268,9 @@ int main(int argc, char *argv[]) {
             // set the location code
             encoded_payload[1] = lcode & 0xFF;
 
-            memset(encoded_payload, 0, 10);
-
             *encoded_counter = htonl(count);
             *encoded_max = htonl(npackets);
+            *encoded_session = htonl(session_id);
 
             snprintf((char *) payload, PAYLOAD_LEN, "MCS %u %s%s Packet %u of %u Location %u Name %s",
                     mcs_iter,
