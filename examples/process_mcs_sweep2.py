@@ -12,6 +12,7 @@ import pprint
 parser = argparse.ArgumentParser(description='MCS Sweep Processor')
 
 parser.add_argument('--pcap', action="store", dest="pcap")
+parser.add_argument('--markdown', action="store_true", dest="markdown")
 
 results = parser.parse_args()
 
@@ -141,7 +142,8 @@ ratemap[15][1][1] = 300
 
 #tshark -x -T ek -r 2.4_test_c6ht40plus -Y 'wlan.bssid == 00:de:ad:be:ef:00 and wlan.fc.type == 0 and wlan.fc.subtype == 8'
 
-print "Launching tshark and analyzing packets, this may take some time."
+if not results.markdown:
+    print "Launching tshark and analyzing packets, this may take some time."
 
 # We use tshark to get the packet contents
 # Elastic Search / EK mode gets us a JSON record per line instead of a 
@@ -257,9 +259,20 @@ for l in tshark.stdout:
         #print e
         pass
 
+if results.markdown:
+    print "## MCS pcap:", results.pcap
+    print "Sessions found:", len(resultmap)
+
 # For each txsession
 for txs in resultmap:
     totalcount = float(resultmap[txs][64])
+
+    if results.markdown:
+        print "### Session", txs
+        print "Packets per rate:", totalcount
+
+    print "|Rate|Location                |% Seen|Min/Avg/Max|"
+    print "|----|-----------------------|-------|-----------|"
 
     if 63 in resultmap[txs]:
         for loc in resultmap[txs][63][1][1]:
@@ -280,8 +293,12 @@ for txs in resultmap:
             perc = (float(len(resultmap[txs][63][1][1][loc])) / totalcount) * 100
             avgsig = avgsig / len(resultmap[txs][63][1][1][loc])
 
-            print "Calibration 1mbit                {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
-                    "Location {}".format(loc), perc, minsig, avgsig, maxsig)
+            if results.markdown:
+                print "|1mbit Non-MCS Calibration|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
+                        loc, perc, minsig, avgsig, maxsig)
+            else:
+                print "Calibration 1mbit                {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
+                        "Location {}".format(loc), perc, minsig, avgsig, maxsig)
 
     for m in range(0, 16):
         for ht in range(0, 2):
@@ -297,13 +314,17 @@ for txs in resultmap:
                     gistr = ""
     
                 if (len(resultmap[txs][m][ht][gi]) == 0):
-                    print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
-                            m,
-                            htstr,
-                            gistr,
-                            "{} mbit".format(ratemap[m][ht][gi]),
-                            "Location --",
-                            0)
+                    if results.markdown:
+                        print "|{} {} {} {} mbit|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
+                                m, htstr, gistr, ratemap[m][ht][gi], "--", 0, "--", "--", "--")
+                    else:
+                        print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
+                                m,
+                                htstr,
+                                gistr,
+                                "{} mbit".format(ratemap[m][ht][gi]),
+                                "Location --",
+                                0)
     
                 for loc in resultmap[txs][m][ht][gi]:
                     for loc in resultmap[txs][m][ht][gi]:
@@ -324,13 +345,17 @@ for txs in resultmap:
                     perc = (float(len(resultmap[txs][m][ht][gi][loc])) / totalcount) * 100
                     avgsig = avgsig / len(resultmap[txs][m][ht][gi][loc])
     
-                    print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
-                            m,
-                            htstr,
-                            gistr,
-                            "{} mbit".format(ratemap[m][ht][gi]),
-                            "Location {}".format(loc),
-                            perc, minsig, avgsig, maxsig)
+                    if results.markdown:
+                        print "|{} {} {} {} mbit|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
+                                m, htstr, gistr, ratemap[m][ht][gi], loc, perc, minsig, avgsig, maxsig)
+                    else:
+                        print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
+                                m,
+                                htstr,
+                                gistr,
+                                "{} mbit".format(ratemap[m][ht][gi]),
+                                "Location {}".format(loc),
+                                perc, minsig, avgsig, maxsig)
 
 sys.exit(1)
 
