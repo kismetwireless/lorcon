@@ -141,6 +141,8 @@ ratemap[15][1][1] = 300
 
 #tshark -x -T ek -r 2.4_test_c6ht40plus -Y 'wlan.bssid == 00:de:ad:be:ef:00 and wlan.fc.type == 0 and wlan.fc.subtype == 8'
 
+print "Launching tshark and analyzing packets, this may take some time."
+
 # We use tshark to get the packet contents
 # Elastic Search / EK mode gets us a JSON record per line instead of a 
 # huge vector object we'd have to parse in ram
@@ -210,7 +212,7 @@ for l in tshark.stdout:
  
             resultmap[txid][63][1][1][txloc][txpnum] = pcap_signal
 
-            print "Calibration:", txid, txflags, txloc, txpnum, txtnum, pcap_signal
+            #print "Calibration:", txid, txflags, txloc, txpnum, txtnum, pcap_signal
 
         
         pcap_dr = float(j['layers']['radiotap']['radiotap_radiotap_datarate'])
@@ -222,8 +224,12 @@ for l in tshark.stdout:
         ext_gi = (txflags & (1 << 6))
         ext_mcs = int(txflags & 0x3F)
 
-        # extht and extgi are bit fragments we're comparing to int-ish booleans,
-        # so it's not a literal compare
+        if ext_ht:
+            ext_ht = 1
+
+        if ext_gi:
+            ext_gi = 1
+
         if ext_ht and not pcap_mcs_bw:
             print "HT mismatch", ext_ht, pcap_mcs_bw
             continue
@@ -241,7 +247,7 @@ for l in tshark.stdout:
         
         resultmap[txid][ext_mcs][ext_ht][ext_gi][txloc][txpnum] = pcap_signal
 
-        print "MCS:", txid, txflags, txloc, txpnum, txtnum, pcap_dr, pcap_mcs_index, pcap_mcs_shortgi, pcap_mcs_bw, pcap_signal
+        #print "MCS:", txid, ext_ht, ext_gi, ext_mcs, txloc, txpnum, txtnum, pcap_dr, pcap_mcs_index, pcap_mcs_shortgi, pcap_mcs_bw, pcap_signal
 
     except KeyError as e:
         #pprint.pprint(j)
