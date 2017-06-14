@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser(description='MCS Sweep Processor')
 
 parser.add_argument('--pcap', action="store", dest="pcap")
 parser.add_argument('--markdown', action="store_true", dest="markdown")
+parser.add_argument('--csv', action="store_true", dest="csv")
 
 results = parser.parse_args()
 
@@ -142,7 +143,7 @@ ratemap[15][1][1] = 300
 
 #tshark -x -T ek -r 2.4_test_c6ht40plus -Y 'wlan.bssid == 00:de:ad:be:ef:00 and wlan.fc.type == 0 and wlan.fc.subtype == 8'
 
-if not results.markdown:
+if not results.markdown and not results.csv:
     print "Launching tshark and analyzing packets, this may take some time."
 
 # We use tshark to get the packet contents
@@ -262,6 +263,8 @@ for l in tshark.stdout:
 if results.markdown:
     print "## MCS pcap:", results.pcap
     print "Sessions found:", len(resultmap)
+elif results.csv:
+    print "file,session,location,rate,seen,min,avg,max"
 
 # For each txsession
 for txs in resultmap:
@@ -271,8 +274,8 @@ for txs in resultmap:
         print "### Session", txs
         print "Packets per rate:", totalcount
 
-    print "|Rate|Location                |% Seen|Min/Avg/Max|"
-    print "|----|-----------------------|-------|-----------|"
+        print "|Rate|Location                |% Seen|Min/Avg/Max|"
+        print "|----|-----------------------|-------|-----------|"
 
     if 63 in resultmap[txs]:
         for loc in resultmap[txs][63][1][1]:
@@ -296,6 +299,8 @@ for txs in resultmap:
             if results.markdown:
                 print "|1mbit Non-MCS Calibration|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
                         loc, perc, minsig, avgsig, maxsig)
+            elif results.csv:
+                print "{},{},{},{},{},{},{},{}".format(results.pcap, txs, loc, "CAL", perc, minsig, avgsig, maxsig)
             else:
                 print "Calibration 1mbit                {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
                         "Location {}".format(loc), perc, minsig, avgsig, maxsig)
@@ -317,6 +322,8 @@ for txs in resultmap:
                     if results.markdown:
                         print "|{} {} {} {} mbit|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
                                 m, htstr, gistr, ratemap[m][ht][gi], "--", 0, "--", "--", "--")
+                    elif results.csv:
+                        print "{},{},{},{},{},{},{},{}".format(results.pcap, txs, "--", ratemap[m][ht][gi], 0, 0, 0, 0)
                     else:
                         print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}%".format(
                                 m,
@@ -348,6 +355,8 @@ for txs in resultmap:
                     if results.markdown:
                         print "|{} {} {} {} mbit|Location {}|{:.2f}%|{} dBm/{} dBm/{} dBm|".format(
                                 m, htstr, gistr, ratemap[m][ht][gi], loc, perc, minsig, avgsig, maxsig)
+                    elif results.csv:
+                        print "{},{},{},{},{},{},{},{}".format(results.pcap, txs, loc, ratemap[m][ht][gi], perc, minsig, avgsig, maxsig)
                     else:
                         print "MCS {:2} {:5} {:8} {:10} {:12} {:.2f}% {} dBm/{} dBm/{} dBm".format(
                                 m,
