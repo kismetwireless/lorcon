@@ -1,0 +1,6 @@
+MCS SWEEP 2 -
+    A simple tool using Lorcon to generate packets encoded with every MCS data rate.
+    Useful for testing the RX characteristics of a system for multistream data.
+
+PROCESS MCS SWEEP 2 -
+    A simple Python script for processing pcaps containing MCS sweep data
