@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://www.kismetwireless.net/git/lorcon.git
-PKG_SOURCE_VERSION:=40a107da397d81366e209e6742b922b6a3af8387
+PKG_SOURCE_VERSION:=8dfb5585983d68aef635c0df784f9fef40a712f1
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_FIXUP:=autoreconf
@@ -51,7 +51,11 @@ define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR)/ \
 		LD="$(TARGET_CXX)" \
 		DESTDIR="$(PKG_INSTALL_DIR)" \
-		all tools install
+		all install
+	$(MAKE) -C $(PKG_BUILD_DIR)/ \
+		LD="$(TARGET_CXX)" \
+		DESTDIR="$(PKG_INSTALL_DIR)" \
+		tools
 endef
 
 define Package/lorcon/install
