@@ -6,7 +6,7 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://www.kismetwireless.net/git/lorcon.git
-PKG_SOURCE_VERSION:=008aac2e0381490ee363e07d9dc4600e7febdffe
+PKG_SOURCE_VERSION:=40a107da397d81366e209e6742b922b6a3af8387
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_FIXUP:=autoreconf
@@ -51,16 +51,20 @@ define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR)/ \
 		LD="$(TARGET_CXX)" \
 		DESTDIR="$(PKG_INSTALL_DIR)" \
-		all install
+		all tools install
 endef
 
 define Package/lorcon/install
+	# Copy the libraries
 	mkdir -p $(STAGING_DIR)/usr/include
 	$(CP) $(PKG_INSTALL_DIR)/usr/include/lorcon2 $(STAGING_DIR)/usr/include/
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/liborcon*.so $(STAGING_DIR)/usr/lib/
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/liborcon*.so $(1)/usr/lib/
-	#$(CP) $(PKG_BUILD_DIR)/.libs/liborcon2*.so $(1)/usr/lib/
+
+	# Copy mcs_sweep2
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(CP) $(PKG_BUILD_DIR)/tools/mcs_sweep2 $(1)/usr/bin/
 endef
 
 $(eval $(call BuildPackage,lorcon))
