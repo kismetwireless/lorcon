@@ -51,6 +51,7 @@
 #include "nl80211_control.h"
 #include "lorcon_int.h"
 #include "lorcon_packasm.h"
+#include "lorcon_endian.h"
 
 #ifndef IEEE80211_RADIOTAP_FLAGS
 #define IEEE80211_RADIOTAP_FLAGS    (1 << 1)
@@ -308,8 +309,8 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
     _mcs_rtap_hdr mcs_rtap_hdr = {
         .version = 0,
-        .length = sizeof(_mcs_rtap_hdr),
-        .bitmap = IEEE80211_RADIOTAP_FLAGS | IEEE80211_RADIOTAP_MCS,
+        .length = lorcon_le16(sizeof(_mcs_rtap_hdr)),
+        .bitmap = lorcon_le32(IEEE80211_RADIOTAP_FLAGS | IEEE80211_RADIOTAP_MCS),
         .flags = IEEE80211_RADIOTAP_F_FRAG,
         .mcs_known = IEEE80211_RADIOTAP_MCS_HAVE_BW | 
             IEEE80211_RADIOTAP_MCS_HAVE_MCS | 
