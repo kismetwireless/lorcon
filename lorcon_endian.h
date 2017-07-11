@@ -27,7 +27,7 @@
 #include <unistd.h>
 
 /* Generic endian flopping macros */
-#ifdef WORDS_BIGENDIAN
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 
 #define lorcon_hton16(x) (x)
 #define lorcon_ntoh16(x) (x)
