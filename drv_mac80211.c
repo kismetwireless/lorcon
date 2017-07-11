@@ -291,8 +291,8 @@ int mac80211_sendpacket(lorcon_t *context, lorcon_packet_t *packet) {
 
     _basic_rtap_hdr basic_rtap_hdr = {
         .version = 0,
-        .length = sizeof(_basic_rtap_hdr),
-        .bitmap = IEEE80211_RADIOTAP_FLAGS,
+        .length = lorcon_le16(sizeof(_basic_rtap_hdr)),
+        .bitmap = lorcon_le32(IEEE80211_RADIOTAP_FLAGS),
         .flags = IEEE80211_RADIOTAP_F_FRAG
     };
 
