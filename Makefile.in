@@ -39,11 +39,11 @@ LIBOUT = liborcon2.la
 TXTESTOBJ = tx.o
 TXTESTOUT = tx
 
-TXTUNOBJ  = tuntx.o
-TXTUNOUT  = tuntx
+TXTUNOBJ  = tools/tuntx.o
+TXTUNOUT  = tools/tuntx
 
-L2PINGOBJ = l2ping80211.o
-L2PINGOUT = l2ping80211
+MCSSWEEP2OBJ = tools/mcs_sweep2.o
+MCSSWEEP2OUT = tools/mcs_sweep2
 
 all:	$(DEPEND) $(LIBOUT) 
 
@@ -57,8 +57,10 @@ $(TXTESTOUT):	$(TXTESTOBJ)
 $(TXTUNOUT):	$(TXTUNOBJ)
 	$(CC) $(LDFLAGS) -o $(TXTUNOUT) $(TXTUNOBJ) $(LIBS) -lorcon2 -lpcap
 
-$(L2PINGOUT):	$(L2PINGOBJ)
-	$(CC) $(LDFLAGS) -o $(L2PINGOUT) $(L2PINGOBJ) $(LIBS) -lorcon2 -lpcap
+$(MCSSWEEP2OUT):	$(MCSSWEEP2OBJ)
+	$(CC) $(LDFLAGS) -o $(MCSSWEEP2OUT) $(MCSSWEEP2OBJ) $(LIBS) -lorcon2 
+
+tools:	$(LIBOUT) $(TXTUNOUT) $(L2PINGOUT) $(MCSSWEEP2OUT)
 
 install:	$(LIBOUT)
 	install -d -m 755 $(LIB)
