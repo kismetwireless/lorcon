@@ -50,6 +50,7 @@ void usage(char *argv[]) {
     printf("\t-l <location #>       Arbitrary location # added to packets\n");
     printf("\t-L <location name>    Arbitrary location name added to packets\n");
     printf("\t-n <count>            Number of packets at each MCS to send\n");
+    printf("\t-d <delay>            Interframe delay\n");
 
 	printf("\nExample:\n");
 	printf("\t%s -i wlan0 -c 6HT40+ -l 1 -L 'Top Floor' -n 1000\n\n", argv[0]);
@@ -107,7 +108,7 @@ int main(int argc, char *argv[]) {
 	printf ("%s - 802.11 MCS Sweeper\n", argv[0]);
 	printf ("-----------------------------------------------------\n\n");
 
-	while ((c = getopt(argc, argv, "hi:c:l:L:n:")) != EOF) {
+	while ((c = getopt(argc, argv, "hi:c:l:L:n:d:")) != EOF) {
 		switch (c) {
 			case 'i': 
 				interface = strdup(optarg);
@@ -140,13 +141,20 @@ int main(int argc, char *argv[]) {
                     printf("ERROR: Unable to parse number of packets\n");
                     return -1;
                 }
+                break;
 
+            case 'd':
+                if (sscanf(optarg, "%u", &interval) != 1) {
+                    printf("ERROR: Unable to parse interframe interval\n");
+                    return -1;
+                }
                 break;
 
 			case 'h':
 				usage(argv);
                 return -1;
 				break;
+
 			default:
 				usage(argv);
                 return -1;
