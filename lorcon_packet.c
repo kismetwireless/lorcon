@@ -524,7 +524,8 @@ int lorcon_packet_txprep_by_ctx(lorcon_t *context, lorcon_packet_t *packet,
 
 		rtap_hdr->it_version = 0;
 		rtap_hdr->it_pad = 0;
-		rtap_hdr->it_len = lorcon_le16(sizeof(struct lorcon_inject_radiotap_header));
+		// rtap_hdr->it_len = lorcon_le16(sizeof(struct lorcon_inject_radiotap_header));
+		rtap_hdr->it_len = sizeof(struct lorcon_inject_radiotap_header);
 #if 0
 		rtap_hdr->it_present =
 			lorcon_le32((1 << TX_IEEE80211_RADIOTAP_FLAGS) | 
