@@ -6,8 +6,8 @@ PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 #PKG_SOURCE_URL:=https://www.kismetwireless.net/git/lorcon.git
-PKG_SOURCE_URL:=/home/dragorn/src/lorcon2.git
-PKG_SOURCE_VERSION:=7ac94e8b78d1f61af9ba88c8996c54277de373f4
+PKG_SOURCE_URL:=/home/dragorn/src/lorcon2
+PKG_SOURCE_VERSION:=3c19c7204a5da16696e5df95fffd061db6ba35fa
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION)-$(PKG_SOURCE_VERSION).tar.gz
 PKG_FIXUP:=autoreconf
