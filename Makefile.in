@@ -22,7 +22,7 @@ INCLUDE = ${DESTDIR}@includedir@
 CC = @CC@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@ 
-CFLAGS = -I./ @CPPFLAGS@ @CFLAGS@ -DLORCON_VERSION=$(VERSION)
+CFLAGS = -I./ @CPPFLAGS@ @CFLAGS@ -DLORCON_VERSION=$(VERSION) -I$(INCLUDE)
 SHELL = @SHELL@
 LIBTOOL = @LIBTOOL@
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(CFLAGS)
@@ -84,6 +84,8 @@ clean:
 	@-rm -f *.la
 	@-rm -rf .libs
 	@-rm -f $(TXTESTOUT)
+	@-rm -f $(MCSSWEEP2OUT)
+	@-rm -f $(TXTUNOUT)
 
 distclean:
 	@-$(MAKE) clean
