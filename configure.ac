@@ -204,16 +204,6 @@ fi # cygwin
 
 if test "$linux" = "yes"; then
 
-havenetlink=yes
-
-netlink_force=no
-
-AC_ARG_WITH(netlink-version,
-	[  --with-netlink-version[=1|2|3]     Force using libnl1, libnl2, or libnl-3 ],
-	[
-	netlink_force=$withval
-	])
-
 AC_CHECK_PROG(havepkgconfig, [pkg-config], yes, no)
 if test "$havepkgconfig" = "no"; then
   AC_MSG_WARN(Missing pkg-config will lead to multiple other checks failing)
@@ -223,6 +213,15 @@ NLLIBS=""
 NLCFLAGS=""
 nlname=""
 
+havenetlink=yes
+netlink_force=no
+
+AC_ARG_WITH(netlink-tiny,
+	[  --with-netlink-tiny                       Force libnl-tiny ],
+	[
+	netlink_force="tiny"
+	])
+
 if test "$havenetlink" = "yes"; then
 	PKG_CHECK_MODULES(libnl30, [libnl-3.0], libnl30=yes, libnl30=no)
 	PKG_CHECK_MODULES(libnlgenl30, [libnl-genl-3.0], libnlgenl30=yes, libnlgenl30=no)
@@ -230,6 +229,18 @@ if test "$havenetlink" = "yes"; then
 	PKG_CHECK_MODULES(libnl1, [libnl-1], libnl1=yes, libnl1=no)
 
 	picked_nl=no
+
+    if test $netlink_force = "tiny"; then
+        picked_nl="tiny"
+        AC_CHECK_HEADER([netlink/netlink.h], 
+                AC_DEFINE(HAVE_LIBNLTINY_HEADERS, 1, [libnltiny headers present]), 
+                AC_MSG_ERROR([libnl-tiny requested but could not find headers]))
+
+        AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+        AC_DEFINE(HAVE_LIBNLTINY, 1, libnl-2.0 netlink library)
+        nlname="libnl-tiny"
+    fi
+
 	if test $picked_nl = "no" -a "$libnl30" = "yes" -a "$libnlgenl30" = "yes"; then
 		if test $netlink_force = "no" -o $netlink_force = "3"; then
 			picked_nl=3
@@ -252,6 +263,7 @@ if test "$havenetlink" = "yes"; then
 		if test $netlink_force = "no" -o $netlink_force = "1"; then
 			picked_nl=1
 			AC_DEFINE(HAVE_LIBNL, 1, libnl netlink library)
+			AC_DEFINE(HAVE_LIBNL10, 1, libnl netlink library)
 			nlname="libnl-1"
 		fi
 	fi
@@ -261,15 +273,19 @@ if test "$havenetlink" = "yes"; then
 	fi
 
 	if test "$nlname" != ""; then
-		NLLIBS=`pkg-config --libs $nlname`
-		NLCFLAGS=`pkg-config --cflags $nlname`
+        if test "$picked_nl" == "tiny"; then
+            NLLIBS="-lnl-tiny"
+        else
+		    NLLIBS=`pkg-config --libs $nlname`
+		    NLCFLAGS=`pkg-config --cflags $nlname`
+        fi
 	fi
 fi
 
 if test "$havenetlink" = "yes"; then
 	OLIBS="$LIBS"
 	LIBS="$LIBS $NLLIBS"
-	OCFL="$CPPFLAGS"
+	OCPPFL="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $NLCFLAGS"
 
 	AC_MSG_CHECKING(For mac80211 support in netlink library)
@@ -288,7 +304,10 @@ if test "$havenetlink" = "yes"; then
 			NL80211_IFTYPE_MONITOR;
 			NL80211_CMD_NEW_INTERFACE;
 			return 0;
-			]])],[havenetlink=yes LIBS="$LIBS $NLLIBS"],[havenetlink=no LIBS="$OLIBS"])
+			]])],[havenetlink=yes],[havenetlink=no])
+
+	LIBS="$OLIBS"
+	CPPFLAGS="$OCPPFL"
 else
 	AC_MSG_WARN(Missing libnl netlink library will not be able to control mac80211 vaps)
 	havenetlink=no
@@ -298,6 +317,9 @@ if test "$havenetlink" = "yes"; then
 	AC_MSG_RESULT(yes)
 	AC_DEFINE(HAVE_LINUX_NETLINK, 1, Netlink works)
 fi
+
+AC_SUBST(NLLIBS)
+AC_SUBST(NLCFLAGS)
 
 fi
 

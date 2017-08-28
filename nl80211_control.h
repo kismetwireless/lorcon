@@ -21,7 +21,7 @@
 #ifndef __NL80211_CONFIG__
 #define __NL80211_CONFIG__
 
-// Use our own defines incase we don't have nl80211
+/* Use our own defines in case we don't have nl80211 */
 #define nl80211_mntr_flag_none		0
 #define nl80211_mntr_flag_fcsfail	1
 #define nl80211_mntr_flag_plcpfail	2
@@ -29,30 +29,26 @@
 #define nl80211_mntr_flag_otherbss	4
 #define nl80211_mntr_flag_cookframe	5
 
-struct nl80211_channel_block {
-	char *phyname;
-	int nfreqs;
-	int *channel_list;
-};
+int nl80211_connect(const char *interface, void **nl_sock, int *nl80211_id, 
+        int *if_index, char *errstr);
+void nl80211_disconnect(void *nl_sock);
 
-typedef struct nl80211_channel_block nl80211_channel_block_t;
-
-int nl80211_connect(const char *interface, void **handle, void **cache,
-					void **family, char *errstr);
-void nl80211_disconnect(void *handle);
-
-// Make a vap under mac80211
+/* Create monitor vap */
 int nl80211_createvap(const char *interface, const char *newinterface, char *errstr);
 
-// Set vap flags
-int nl80211_setvapflag(const char *interface, char *errstr, int nflags, int *flags);
+/* Set channel or frequency.  Callers should prefer the cache_ option using nl80211_connect 
+ * when setting multiple channels */
+int nl80211_setchannel(const char *interface, int channel, unsigned int chmode, char *errstr);
+int nl80211_setchannel_cache(int ifidx, void *nl_sock, int nl80211_id,
+        int channel, unsigned int chmode, char *errstr);
 
-// Set channel using nl80211 instead of SIOCWCHAN
-int nl80211_setchannel(const char *interface, int channel, 
-					   unsigned int chmode, char *errstr);
-int nl80211_setchannel_cache(const char *interface, void *handle,
-							 void *family, int channel, unsigned int chmode, 
-							 char *errstr);
+/* Set complex frequency */
+int mac80211_set_frequency(const char *interface, unsigned int control_freq,
+        unsigned int chan_width, unsigned int center_freq1, unsigned int center_freq2,
+        char *errstr);
+int mac80211_set_frequency_cache(int ifidx, void *nl_sock, int nl80211_id, 
+        unsigned int control_freq, unsigned int chan_width, unsigned int center_freq1, 
+        unsigned int center_freq2, char *errstr);
 
 // Caller is expected to free return
 char *nl80211_find_parent(const char *interface);

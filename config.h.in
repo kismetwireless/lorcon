@@ -21,11 +21,20 @@
 /* libnl netlink library */
 #undef HAVE_LIBNL
 
+/* libnl netlink library */
+#undef HAVE_LIBNL10
+
 /* libnl-2.0 netlink library */
 #undef HAVE_LIBNL20
 
 /* libnl-3.0 netlink library */
 #undef HAVE_LIBNL30
+
+/* libnl-2.0 netlink library */
+#undef HAVE_LIBNLTINY
+
+/* libnltiny headers present */
+#undef HAVE_LIBNLTINY_HEADERS
 
 /* libpcap packet capture lib */
 #undef HAVE_LIBPCAP

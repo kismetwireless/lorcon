@@ -20,8 +20,9 @@
 */
 
 #include "config.h"
+#include "lorcon.h"
 
-#if defined(HAVE_LIBNL20) || defined(HAVE_LIBNL30)
+#if defined(HAVE_LIBNL20) || defined(HAVE_LIBNL30) || defined(HAVE_LIBNLTINY)
 #define HAVE_LIBNL_NG
 #endif
 
@@ -30,12 +31,17 @@
 #ifdef HAVE_LINUX_NETLINK
 #include <sys/types.h>
 #include <asm/types.h>
+
+#ifdef HAVE_LIBNLTINY
+#define _GNU_SOURCE
+#endif
+
 #include <netlink/genl/genl.h>
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
 #include <netlink/msg.h>
 #include <netlink/attr.h>
-#include <netlink/netlink.h>
+
 #include "nl80211.h"
 #include <net/if.h>
 #endif
@@ -46,17 +52,17 @@
 #include <string.h>
 #include <errno.h>
 
-#include "lorcon.h"
-#include "nl80211.h"
 #include "nl80211_control.h"
+#include "wifi_ht_channels.h" 
 
 // Libnl1->Libnl2 compatability mode since the API changed, cribbed from 'iw'
-#if !defined(HAVE_LIBNL_NG)
+#if defined(HAVE_LIBNL10)
+
 #define nl_sock nl_handle
 
 static inline struct nl_handle *nl_socket_alloc(void) {
 #ifdef HAVE_LINUX_NETLINK
-	return (struct nl_handle *) nl_handle_alloc();
+	return nl_handle_alloc();
 #else
     return NULL;
 #endif
@@ -65,35 +71,38 @@ static inline struct nl_handle *nl_socket_alloc(void) {
 static inline void nl_socket_free(struct nl_sock *h) {
 #ifdef HAVE_LINUX_NETLINK
 	nl_handle_destroy(h);
+#else
+    return;
 #endif
 }
 
-static inline int __genl_ctrl_alloc_cache(struct nl_sock *h, struct nl_cache **cache) {
-#ifdef HAVE_LINUX_NETLINK
-	struct nl_cache *tmp = genl_ctrl_alloc_cache(h);
-	if (!tmp)
-		return -1;
-	*cache = tmp;
-#else
-    *cache = NULL;
 #endif
-	return 0;
-}
-#define genl_ctrl_alloc_cache __genl_ctrl_alloc_cache
 #endif
+
 
 int ChanToFreq(int in_chan) {
-   /* revamped from iw */
-   if (in_chan == 14)
-       return 2484;
+    /* 802.11 channels to frequency; if it looks like a frequency, return as
+     * pure frequency; derived from iwconfig */
 
-   if (in_chan < 14)
-       return 2407 + in_chan * 5;
+    if (in_chan > 250)
+        return in_chan;
 
-   return (in_chan + 1000) * 5;
+    if (in_chan == 14)
+        return 2484;
+    else if (in_chan < 14)
+        return 2407 + in_chan * 5;
+    else if (in_chan >= 182 && in_chan <= 196)
+        return 4000 + in_chan * 5;
+    else
+        return 5000 + in_chan * 5;
+
+    return in_chan;
 }
 
 int FreqToChan(int in_freq) {
+    if (in_freq < 250)
+        return in_freq;
+
     /* revamped from iw */
     if (in_freq == 2484)
         return 14;
@@ -104,383 +113,463 @@ int FreqToChan(int in_freq) {
     return in_freq / 5 - 1000;
 }
 
-int nl80211_connect(const char *interface, void **handle, void **cache,
-					 void **family, char *errstr) {
+int nl80211_connect(const char *interface, void **nl_sock, 
+        int *nl80211_id, int *if_index, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
-			 "support, check the output of ./configure for why");
-	return -1;
+    snrptinf(errstr, LORCON_STATUS_MAX,
+            "cannot connect to netlink; not compiled with netlink "
+            "support.  Check the output of ./configure for more information");
+    return -1;
 #else
-	struct nl_sock *nl_handle;
-	struct nl_cache *nl_cache;
-	struct genl_family *nl80211;
 
-    if (*handle == NULL) {
-        if ((nl_handle = nl_socket_alloc()) == NULL) {
-            snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate nlhandle",
-                    __FUNCTION__);
-            return -1;
-        }
-
-        if (genl_connect(nl_handle)) {
-            snprintf(errstr, LORCON_STATUS_MAX, "%s failed to connect to generic netlink",
-                    __FUNCTION__);
-            nl_socket_free(nl_handle);
-            return -1;
-        } 
-    } else {
-        nl_handle = (struct nl_sock *) (*handle);
+    if ((*if_index = if_nametoindex(interface)) < 0) {
+        snprintf(errstr, LORCON_STATUS_MAX,
+                "cannot connect to netlink:  Could not find interface '%s'", interface);
+        return -1;
     }
 
-	if (genl_ctrl_alloc_cache(nl_handle, &nl_cache) != 0) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate "
-				 "generic netlink cache", __FUNCTION__);
-		nl_socket_free(nl_handle);
-		return -1;
-	}
+    *nl_sock = nl_socket_alloc();
+    if (!nl_sock) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to connect to netlink: could not allocate netlink socket");
+        return -1;
+    }
 
-	if ((nl80211 = genl_ctrl_search_by_name(nl_cache, "nl80211")) == NULL) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to find "
-				 "nl80211 controls, kernel may be too old", __FUNCTION__);
-		nl_socket_free(nl_handle);
-		return -1;
-	}
+    if (genl_connect(*nl_sock)) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to connect to netlink: could not connect to generic netlink");
+        return -1;
+        nl_socket_free(*nl_sock);
+    }
 
-	(*handle) = (void *) nl_handle;
-	(*cache) = (void *) nl_cache;
-	(*family) = (void *) nl80211;
+    *nl80211_id = genl_ctrl_resolve(*nl_sock, "nl80211");
+    if (nl80211_id < 0) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to connect to netlink: could not resolve nl80211");
+        nl_socket_free(*nl_sock);
+    }
 
-	return 1;
-#endif
+    return 0;
 }
 
-void nl80211_disconnect(void *handle) {
-#ifdef HAVE_LINUX_NETLINK
-	nl_socket_free((struct nl_sock *) handle);
-#endif
+void nl80211_disconnect(void *nl_sock) {
+    nl_socket_free(nl_sock);
 }
 
-int nl80211_createvap(const char *interface, const char *newinterface, char *errstr) {
+int nl80211_create_monitor_vif(const char *interface, const char *newinterface, 
+        unsigned int *in_flags, unsigned int flags_sz, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with "
-			 "netlink/nl80211 support, check the output of ./configure for why");
-	return -1;
+    snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
+            "support, check the output of ./configure for why");
+    return -1;
 #else
 
-	struct nl_sock *nl_handle = NULL;
-	struct nl_cache *nl_cache = NULL;
-	struct genl_family *nl80211 = NULL;
-	struct nl_msg *msg = NULL;
+    void *nl_sock;
+    int nl80211_id;
 
-	if (if_nametoindex(newinterface) > 0) 
-		return 1;
+    struct nl_msg *msg;
+    struct nl_msg *flags;
 
-	if (nl80211_connect(interface, (void **) &nl_handle, 
-						 (void **) &nl_cache, (void **) &nl80211, errstr) < 0)
-		return -1;
+    unsigned int x;
 
-	if ((msg = nlmsg_alloc()) == NULL) {
-		snprintf(errstr, LORCON_STATUS_MAX, "nl80211_createvap() failed to allocate "
-				 "message");
-		nl80211_disconnect(nl_handle);
-		return -1;
-	}
+    if (if_nametoindex(newinterface) > 0) 
+        return 1;
 
-	genlmsg_put(msg, 0, 0, genl_family_get_id(nl80211), 0, 0, 
-				NL80211_CMD_NEW_INTERFACE, 0);
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(interface));
-	NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, newinterface);
-	NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_MONITOR);
+    nl_sock = nl_socket_alloc();
+    if (!nl_sock) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to create monitor vif %s:%s, unable to allocate netlink socket",
+                interface, newinterface);
+        return -1;
+    }
 
-	if (nl_send_auto_complete(nl_handle, msg) < 0 || nl_wait_for_ack(nl_handle) < 0) {
+    if (genl_connect(nl_sock)) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to create monitor vif %s:%s, unable to connect generic netlink",
+                interface, newinterface);
+        nl_socket_free(nl_sock);
+    }
+
+    nl80211_id = genl_ctrl_resolve(nl_sock, "nl80211");
+    if (nl80211_id < 0) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to create monitor vif %s:%s, unable to resolve nl80211",
+                interface, newinterface);
+        nl_socket_free(nl_sock);
+    }
+
+    if ((msg = nlmsg_alloc()) == NULL) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to create monitor vif %s:%s, unable to allocate nl80211 "
+                "message", interface, newinterface);
+        nl_socket_free(nl_sock);
+        return -1;
+    }
+
+    if ((flags = nlmsg_alloc()) == NULL) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to create monitor vif %s:%s, unable to allocate nl80211 flags",
+                interface, newinterface);
+        nl_socket_free(nl_sock);
+        return -1;
+    }
+
+    genlmsg_put(msg, 0, 0, nl80211_id, 0, 0, NL80211_CMD_NEW_INTERFACE, 0);
+    NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(interface));
+    NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, newinterface);
+    NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_MONITOR);
+
+    for (x = 0; x < flags_sz; x++) {
+        NLA_PUT_FLAG(flags, in_flags[x]);
+    }
+    
+    if (flags_sz > 0)
+        nla_put_nested(msg, NL80211_ATTR_MNTR_FLAGS, flags);
+
+    if (nl_send_auto_complete(nl_sock, msg) < 0 || nl_wait_for_ack(nl_sock) < 0) {
 nla_put_failure:
-		snprintf(errstr, LORCON_STATUS_MAX, "nl80211_createvap() failed to create "
-				 "interface '%s'", newinterface);
-		nlmsg_free(msg);
-		nl80211_disconnect(nl_handle);
-		return -1;
-	}
+        snprintf(errstr, LORCON_STATUS_MAX, "failed to create monitor interface %s:%s",
+                interface, newinterface);
+        nl_socket_free(nl_sock);
+        nlmsg_free(msg);
+        nlmsg_free(flags);
+        return -1;
+    }
 
-	nlmsg_free(msg);
+    nl_socket_free(nl_sock);
+    nlmsg_free(msg);
+    nlmsg_free(flags);
 
-	nl80211_disconnect(nl_handle);
+    if (if_nametoindex(newinterface) <= 0) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "creating a monitor interface for %s:%s worked, but couldn't"
+                "find that interface after creation.", interface, newinterface);
+        return -1;
+    }
 
-	if (if_nametoindex(newinterface) <= 0) {
-		snprintf(errstr, LORCON_STATUS_MAX, "nl80211_createvap() thought we made a "
-				 "vap, but it wasn't there when we looked");
-		return -1;
-	}
-
-	return 0;
+    return 0;
 #endif
 }
 
-// Has to be a separate function because of gotos, ew
-void nl80211_parseflags(int nflags, int *in_flags, struct nl_msg *msg) {
-#ifdef HAVE_LINUX_NETLINK
-	struct nl_msg *flags;
-	unsigned int x;
-	enum nl80211_mntr_flags flag = NL80211_MNTR_FLAG_MAX;
-
-	if ((flags = nlmsg_alloc()) == NULL) {
-		return;
-	}
-
-	for (x = 0; x < nflags; x++) {
-		switch (in_flags[x]) {
-			case nl80211_mntr_flag_none:
-				continue;
-				break;
-			case nl80211_mntr_flag_fcsfail:
-				flag = NL80211_MNTR_FLAG_FCSFAIL;
-				break;
-			case nl80211_mntr_flag_plcpfail:
-				flag = NL80211_MNTR_FLAG_PLCPFAIL;
-				break;
-			case nl80211_mntr_flag_control:
-				flag = NL80211_MNTR_FLAG_CONTROL;
-				break;
-			case nl80211_mntr_flag_otherbss:
-				flag = NL80211_MNTR_FLAG_OTHER_BSS;
-				break;
-			case nl80211_mntr_flag_cookframe:
-				flag = NL80211_MNTR_FLAG_COOK_FRAMES;
-				break;
-		}
-
-		NLA_PUT_FLAG(flags, flag);
-	}
-
-	nla_put_nested(msg, NL80211_ATTR_MNTR_FLAGS, flags);
-
-nla_put_failure:
-	nlmsg_free(flags);
-#endif
-}
-
-int nl80211_setvapflag(const char *interface, char *errstr, int nflags, int *in_flags) {
+int nl80211_set_channel_cache(int ifindex, void *nl_sock,
+        int nl80211_id, int channel, unsigned int chmode, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
+    snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
+            "support, check the output of ./configure for why");
+    return -1;
+#else
+    struct nl_msg *msg;
+    int ret = 0;
+
+    if (chmode >= 4) {
+        snprintf(errstr, LORCON_STATUS_MAX, "unable to set channel: invalid channel mode");
+        return -1;
+    }
+
+    if ((msg = nlmsg_alloc()) == NULL) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to set channel: unable to allocate mac80211 control message.");
+        return -1;
+    }
+
+    genlmsg_put(msg, 0, 0, nl80211_id, 0, 0, NL80211_CMD_SET_WIPHY, 0);
+    NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, ifindex);
+    NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, ChanToFreq(channel));
+    NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, chmode);
+
+    if ((ret = nl_send_auto_complete(nl_sock, msg)) >= 0) {
+        if ((ret = nl_wait_for_ack(nl_sock)) < 0) 
+            goto nla_put_failure;
+    }
+
+    nlmsg_free(msg);
+
+    return 0;
+
+nla_put_failure:
+    snprintf(errstr, LORCON_STATUS_MAX, 
+            "unable to set channel %u/%u mode %u via mac80211: "
+            "error code %d", channel, ChanToFreq(channel), chmode, ret);
+    nlmsg_free(msg);
+    return ret;
+#endif
+}
+
+int nl80211_set_channel(const char *interface, int channel, 
+        unsigned int chmode, char *errstr) {
+#ifndef HAVE_LINUX_NETLINK
+    snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
+            "support, check the output of ./configure for why");
+    return -1;
+#else
+    void *nl_sock;
+    int nl80211_id;
+    int ifidx;
+
+    if (nl80211_connect(interface, &nl_sock, &nl80211_id, &ifidx, errstr) < 0)
+        return -1;
+
+    int ret = 
+        nl80211_set_channel_cache(ifidx, nl_sock, nl80211_id, channel, chmode, errstr);
+
+    nl80211_disconnect(nl_sock);
+
+    return ret;
+#endif
+}
+
+int nl80211_set_frequency_cache(int ifindex, void *nl_sock, int nl80211_id, 
+        unsigned int control_freq, unsigned int chan_width, 
+        unsigned int center_freq1, unsigned int center_freq2,
+        char *errstr) {
+#ifndef HAVE_LINUX_NETLINK
+	snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
 			 "support, check the output of ./configure for why");
-	return -1;
+    return -1;
 #else
+    struct nl_msg *msg;
+    int ret = 0;
 
-	struct nl_sock *nl_handle = NULL;
-	struct nl_cache *nl_cache = NULL;
-	struct genl_family *nl80211 = NULL;
-	struct nl_msg *msg = NULL;
+    if ((msg = nlmsg_alloc()) == NULL) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "unable to set channel/frequency: unable to allocate "
+                "mac80211 control message.");
+        return -1;
+    }
 
-	if (nl80211_connect(interface, (void **) &nl_handle, 
-						 (void **) &nl_cache, (void **) &nl80211, errstr) < 0)
-		return -1;
+    genlmsg_put(msg, 0, 0, nl80211_id, 0, 0, NL80211_CMD_SET_WIPHY, 0);
+    NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, ifindex);
+    NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, control_freq);
+    NLA_PUT_U32(msg, NL80211_ATTR_CHANNEL_WIDTH, chan_width);
 
-	if ((msg = nlmsg_alloc()) == NULL) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to allocate message",
-				 __FUNCTION__);
-		nl80211_disconnect(nl_handle);
-		return -1;
-	}
+    if (center_freq1 != 0) {
+        NLA_PUT_U32(msg, NL80211_ATTR_CENTER_FREQ1, center_freq1);
+    }
 
-	genlmsg_put(msg, 0, 0, genl_family_get_id(nl80211), 0, 0, 
-				NL80211_CMD_SET_INTERFACE, 0);
+    if ((ret = nl_send_auto_complete(nl_sock, msg)) >= 0) {
+        if ((ret = nl_wait_for_ack(nl_sock)) < 0) 
+            goto nla_put_failure;
+    }
 
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(interface));
-	NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_MONITOR);
+    nlmsg_free(msg);
 
-	nl80211_parseflags(nflags, in_flags, msg);
-
-	if (nl_send_auto_complete(nl_handle, msg) >= 0) { 
-		if (nl_wait_for_ack(nl_handle) < 0) {
-			goto nla_put_failure;
-		}
-	} else {
-nla_put_failure:
-		snprintf(errstr, LORCON_STATUS_MAX, "%s failed to set flags on "
-				 "interface '%s': %s", __FUNCTION__, interface,
-				 strerror(errno));
-		nlmsg_free(msg);
-		nl80211_disconnect(nl_handle);
-		return -1;
-	}
-
-	nlmsg_free(msg);
-
-	nl80211_disconnect(nl_handle);
-
-	return 0;
-#endif
-}
-
-int nl80211_setchannel_cache(const char *interface, void *handle,
-							  void *family, int channel,
-							  unsigned int chmode, char *errstr) {
-#ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
-			 "support, check the output of ./configure for why");
-	// Return the same error as we get if the device doesn't support nlfreq
-	return -22;
-#else
-	struct nl_sock *nl_handle = (struct nl_sock *) handle;
-	struct genl_family *nl80211 = (struct genl_family *) family;
-	struct nl_msg *msg;
-	int ret = 0;
-
-	if (chmode > 4) {
-		snprintf(errstr, LORCON_STATUS_MAX, "Invalid channel mode\n");
-		return -1;
-	}
-
-	if ((msg = nlmsg_alloc()) == NULL) {
-		snprintf(errstr, LORCON_STATUS_MAX, "nl80211_setchannel() failed to allocate "
-				 "message");
-		return -1;
-	}
-
-	genlmsg_put(msg, 0, 0, genl_family_get_id(nl80211), 0, 0, 
-				NL80211_CMD_SET_WIPHY, 0);
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(interface));
-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, ChanToFreq(channel));
-	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_CHANNEL_TYPE, chmode);
-
-	if ((ret = nl_send_auto_complete(nl_handle, msg)) >= 0) {
-		if ((ret = nl_wait_for_ack(nl_handle)) < 0) 
-			goto nla_put_failure;
-	}
-
-	nlmsg_free(msg);
-
-	return 0;
+    return 0;
 
 nla_put_failure:
-	snprintf(errstr, LORCON_STATUS_MAX, "nl80211_setchannel() could not set channel "
-			 "%d/%d on interface '%s' err %d", channel, ChanToFreq(channel), 
-			 interface, ret);
+	snprintf(errstr, LORCON_STATUS_MAX, 
+            "unable to set frequency %u %u %u via mac80211: error code %d",
+            control_freq, chan_width, center_freq1, ret);
 	nlmsg_free(msg);
 	return ret;
 #endif
 }
 
-int nl80211_setchannel(const char *interface, int channel, 
-						unsigned int chmode, char *errstr) {
+int nl80211_set_frequency(const char *interface, 
+        unsigned int control_freq, unsigned int chan_width,
+        unsigned int center_freq1, unsigned int center_freq2,
+        char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
-			 "support, check the output of ./configure for why");
-	// Return the same error as if the device doesn't support nl freq control
-	// so we catch it elsewhere
-	return -22;
+    snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
+            "support, check the output of ./configure for why");
+    return -1;
 #else
-	struct nl_sock *nl_handle = NULL;
-	struct nl_cache *nl_cache = NULL;
-	struct genl_family *nl80211 = NULL;
+    void *nl_sock;
+    int ifidx;
+    int nl80211_id;
 
-	if (nl80211_connect(interface, (void **) &nl_handle, 
-						 (void **) &nl_cache, (void **) &nl80211, errstr) < 0)
-		return -1;
+    if (nl80211_connect(interface, &nl_sock, &nl80211_id, &ifidx, errstr) < 0) {
+        return -1;
+    }
 
-	int ret = 
-		nl80211_setchannel_cache(interface, (void *) nl_handle,
-								  (void *) nl80211, channel, chmode, errstr);
+    int ret = 
+        nl80211_set_frequency_cache(ifidx, nl_sock, nl80211_id, 
+                control_freq, chan_width, center_freq1, center_freq2, errstr);
 
-	nl80211_disconnect(nl_handle);
+    nl80211_disconnect(nl_sock);
 
-	return ret;
+    return ret;
 #endif
 }
+
+struct nl80211_channel_list {
+    /* Should be a string once we support ht/vht */
+    int channel;
+    struct nl80211_channel_list *next;
+};
+
+struct nl80211_channel_block {
+	char *phyname;
+
+	int nfreqs;
+
+    struct nl80211_channel_list *channel_list;
+    struct nl80211_channel_list *chan_list_last;
+};
+
 
 #ifdef HAVE_LINUX_NETLINK
 static int nl80211_freqlist_cb(struct nl_msg *msg, void *arg) {
-	struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
-	struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
-	struct nlattr *tb_band[NL80211_BAND_ATTR_MAX + 1];
-	struct nlattr *tb_freq[NL80211_FREQUENCY_ATTR_MAX + 1];
-	struct nlattr *nl_band, *nl_freq;
-	int rem_band, rem_freq, num_freq = 0;
-	uint32_t freq;
-	struct nl80211_channel_block *chanb = (struct nl80211_channel_block *) arg;
+    struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
+    struct genlmsghdr *gnlh = (struct genlmsghdr *) nlmsg_data(nlmsg_hdr(msg));
+    struct nlattr *tb_band[NL80211_BAND_ATTR_MAX + 1];
+    struct nlattr *tb_freq[NL80211_FREQUENCY_ATTR_MAX + 1];
+    struct nlattr *nl_band, *nl_freq;
+    int rem_band, rem_freq;
+    uint32_t freq;
+    struct nl80211_channel_block *chanb = (struct nl80211_channel_block *) arg;
+    char channel_str[32];
+    int band_ht40, band_ht80, band_ht160;
+    unsigned int hti;
 
-	nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
-			  genlmsg_attrlen(gnlh, 0), NULL);
+    struct nl80211_channel_list *chan_list_new;
 
-	if (!tb_msg[NL80211_ATTR_WIPHY_BANDS]) {
-		return NL_SKIP;
-	}
+    nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+            genlmsg_attrlen(gnlh, 0), NULL);
 
-	if (tb_msg[NL80211_ATTR_WIPHY_NAME]) {
-		if (strcmp(nla_get_string(tb_msg[NL80211_ATTR_WIPHY_NAME]), 
-				   chanb->phyname) != 0) {
-			return NL_SKIP;
-		}
-	}
+    if (tb_msg[NL80211_ATTR_WIPHY_NAME]) {
+        if (strcmp(nla_get_string(tb_msg[NL80211_ATTR_WIPHY_NAME]), chanb->phyname) != 0) {
+            return NL_SKIP;
+        }
+    }
 
-	// Count the number of channels
-	for (nl_band = (struct nlattr *) nla_data(tb_msg[NL80211_ATTR_WIPHY_BANDS]),
-		 rem_band = nla_len(tb_msg[NL80211_ATTR_WIPHY_BANDS]);
-		 nla_ok(nl_band, rem_band); 
-		 nl_band = (struct nlattr *) nla_next(nl_band, &rem_band)) {
+    if (tb_msg[NL80211_ATTR_WIPHY_BANDS]) {
+        nla_for_each_nested(nl_band, tb_msg[NL80211_ATTR_WIPHY_BANDS], rem_band) {
+            band_ht40 = band_ht80 = band_ht160 = 0;
 
-		nla_parse(tb_band, NL80211_BAND_ATTR_MAX, (struct nlattr *) nla_data(nl_band),
-				  nla_len(nl_band), NULL);
+            nla_parse(tb_band, NL80211_BAND_ATTR_MAX, nla_data(nl_band),
+                    nla_len(nl_band), NULL);
 
-		for (nl_freq = (struct nlattr *) nla_data(tb_band[NL80211_BAND_ATTR_FREQS]),
-			 rem_freq = nla_len(tb_band[NL80211_BAND_ATTR_FREQS]);
-			 nla_ok(nl_freq, rem_freq); 
-			 nl_freq = (struct nlattr *) nla_next(nl_freq, &rem_freq)) {
+            /* If we have a HT capability field, examine it for HT40 */
+            if (tb_band[NL80211_BAND_ATTR_HT_CAPA]) {
+                __u16 cap = nla_get_u16(tb_band[NL80211_BAND_ATTR_HT_CAPA]);
 
-			nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX, 
-					  (struct nlattr *) nla_data(nl_freq),
-					  nla_len(nl_freq), NULL);
+                /* bit 1 is the HT40 bit */
+                if (cap & (1 << 1))
+                    band_ht40 = 1;
+            }
 
-			if (!tb_freq[NL80211_FREQUENCY_ATTR_FREQ])
-				continue;
+            /* If we have a VHT field, we can assume we have HT80 and then we need
+             * to examine ht160.  
+             * TODO: figure out 160 80+80; do all devices that support 80+80 support
+             * 160?  For now we assume they do...
+             */
+            if (tb_band[NL80211_BAND_ATTR_VHT_CAPA]) {
+                band_ht80 = 1;
 
-			if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED])
-				continue;
+                __u16 cap = nla_get_u32(tb_band[NL80211_BAND_ATTR_VHT_CAPA]);
 
-			num_freq++;
-		}
-	}
+                if (((cap >> 2) & 3) == 1) {
+                    band_ht160 = 1;
+                } else if (((cap >> 2) & 3) == 2) {
+                    band_ht160 = 1;
+                }
+            }
 
-	chanb->nfreqs = num_freq;
-	chanb->channel_list = malloc(sizeof(int) * num_freq);
-	num_freq = 0;
+            // fprintf(stderr, "debug - %u %u %u\n", band_ht40, band_ht80, band_ht160);
 
-	// Assemble a return
-	for (nl_band = (struct nlattr *) nla_data(tb_msg[NL80211_ATTR_WIPHY_BANDS]),
-		 rem_band = nla_len(tb_msg[NL80211_ATTR_WIPHY_BANDS]);
-		 nla_ok(nl_band, rem_band); 
-		 nl_band = (struct nlattr *) nla_next(nl_band, &rem_band)) {
+            if (tb_band[NL80211_BAND_ATTR_FREQS]) {
+                nla_for_each_nested(nl_freq, tb_band[NL80211_BAND_ATTR_FREQS], rem_freq) {
+                    nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX, nla_data(nl_freq),
+                            nla_len(nl_freq), NULL);
 
-		nla_parse(tb_band, NL80211_BAND_ATTR_MAX, (struct nlattr *) nla_data(nl_band),
-				  nla_len(nl_band), NULL);
+                    if (!tb_freq[NL80211_FREQUENCY_ATTR_FREQ])
+                        continue;
 
-		for (nl_freq = (struct nlattr *) nla_data(tb_band[NL80211_BAND_ATTR_FREQS]),
-			 rem_freq = nla_len(tb_band[NL80211_BAND_ATTR_FREQS]);
-			 nla_ok(nl_freq, rem_freq); 
-			 nl_freq = (struct nlattr *) nla_next(nl_freq, &rem_freq)) {
+                    if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED])
+                        continue;
 
-			nla_parse(tb_freq, NL80211_FREQUENCY_ATTR_MAX, 
-					  (struct nlattr *) nla_data(nl_freq),
-					  nla_len(nl_freq), NULL);
+                    /* We've got at least one actual frequency */
+                    freq = nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
 
-			if (!tb_freq[NL80211_FREQUENCY_ATTR_FREQ])
-				continue;
+                    chan_list_new = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
 
-			if (tb_freq[NL80211_FREQUENCY_ATTR_DISABLED])
-				continue;
+                    /* Ultimately channels will be strings to support HT/VHT
+                    snprintf(channel_str, 32, "%u", mac80211_freq_to_chan(freq));
+                    chan_list_new->channel = strdup(channel_str);
+                    */
+                    chan_list_new->channel = ChanToFreq(freq);
 
-			freq = nla_get_u32(tb_freq[NL80211_FREQUENCY_ATTR_FREQ]);
+                    chan_list_new->next = NULL;
+                    chanb->nfreqs++;
+                    chanb->chan_list_last->next = chan_list_new;
+                    chanb->chan_list_last = chan_list_new;
 
-			chanb->channel_list[num_freq++] = FreqToChan(freq);
-		}
-	}
+#if 0
+                    /* This code from Kismet handles HT/VHT channels but we don't have
+                     * the infrastructure yet in lorcon to treat channels as strings,
+                     * so just def it out for now */
 
-	return NL_SKIP;
+                    /* Look us up in the wifi_ht_channels list and add channels if we
+                     * need to add HT capabilities.  We could convert this to a channel
+                     * but it's better to do a frequency lookup */
+                    for (hti = 0; hti < MAX_WIFI_HT_CHANNEL; hti++) {
+                        if (wifi_ht_channels[hti].freq == freq) {
+                            if (band_ht40) {
+                                if (wifi_ht_channels[hti].flags & WIFI_HT_HT40MINUS) {
+                                    chan_list_new = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
+                                    snprintf(channel_str, 32, 
+                                            "%uHT40-", mac80211_freq_to_chan(freq));
+                                    chan_list_new->channel = strdup(channel_str);
+
+                                    chan_list_new->next = NULL;
+                                    chanb->nfreqs++;
+                                    chanb->chan_list_last->next = chan_list_new;
+                                    chanb->chan_list_last = chan_list_new;
+                                }
+
+                                if (wifi_ht_channels[hti].flags & WIFI_HT_HT40PLUS) {
+                                    chan_list_new = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
+
+                                    snprintf(channel_str, 32, 
+                                            "%uHT40+", mac80211_freq_to_chan(freq));
+                                    chan_list_new->channel = strdup(channel_str);
+
+                                    chan_list_new->next = NULL;
+                                    chanb->nfreqs++;
+                                    chanb->chan_list_last->next = chan_list_new;
+                                    chanb->chan_list_last = chan_list_new;
+                                }
+                            }
+
+                            if (band_ht80 && wifi_ht_channels[hti].flags & WIFI_HT_HT80) {
+                                chan_list_new = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
+                                snprintf(channel_str, 32, 
+                                        "%uVHT80", mac80211_freq_to_chan(freq));
+                                chan_list_new->channel = strdup(channel_str);
+
+                                chan_list_new->next = NULL;
+                                chanb->nfreqs++;
+                                chanb->chan_list_last->next = chan_list_new;
+                                chanb->chan_list_last = chan_list_new;
+                            }
+
+                            if (band_ht160 && wifi_ht_channels[hti].flags & WIFI_HT_HT160) {
+                                chan_list_new = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
+                                snprintf(channel_str, 32, 
+                                        "%uVHT160", mac80211_freq_to_chan(freq));
+                                chan_list_new->channel = strdup(channel_str);
+
+                                chan_list_new->next = NULL;
+                                chanb->nfreqs++;
+                                chanb->chan_list_last->next = chan_list_new;
+                                chanb->chan_list_last = chan_list_new;
+                            }
+
+                            break;
+                        }
+                    }
+#endif
+                }
+            }
+        }
+    }
+
+    return NL_SKIP;
 }
 #endif
 
 #ifdef HAVE_LINUX_NETLINK
-static int nl80211_error_cb(struct sockaddr_nl *nla, struct nlmsgerr *err,
-			 void *arg) {
+static int nl80211_error_cb(struct sockaddr_nl *nla, struct nlmsgerr *err, void *arg) {
 	int *ret = (int *) arg;
 	*ret = err->error;
 	return NL_STOP;
@@ -491,69 +580,159 @@ static int nl80211_finish_cb(struct nl_msg *msg, void *arg) {
 	*ret = 0;
 	return NL_SKIP;
 }
+
+static int nl80211_ack_cb(struct nl_msg *msg, void *arg) {
+    int *ret = arg;
+    *ret = 0;
+    return NL_STOP;
+}
 #endif
 
 int nl80211_get_chanlist(const char *interface, int *ret_num_chans, int **ret_chan_list,
-						  char *errstr) {
-	nl80211_channel_block_t cblock;
+        char *errstr) {
+    struct nl80211_channel_block cblock = {
+        .phyname = NULL,
+        .nfreqs = 0,
+        .channel_list = NULL,
+        .chan_list_last = NULL
+    };
+
+    unsigned int num_freq;
+    struct nl80211_channel_list *chan_list_cur, *chan_list_old;
 
 #ifndef HAVE_LINUX_NETLINK
-	snprintf(errstr, LORCON_STATUS_MAX, "LORCON was not compiled with netlink/nl80211 "
-			 "support, check the output of ./configure for why");
-	return NL80211_CHANLIST_NOT_NL80211;
+    snprintf(errstr, LORCON_STATUS_MAX, "Kismet was not compiled with netlink/nl80211 "
+            "support, check the output of ./configure for why");
+    return -1;
 #else
-	void *handle = NULL, *cache = NULL, *family = NULL;
-	struct nl_cb *cb;
-	int err;
-	struct nl_msg *msg;
 
-	cblock.phyname = nl80211_find_parent(interface);
-	if (strlen(cblock.phyname) == 0) {
-		if (if_nametoindex(interface) <= 0) {
-			snprintf(errstr, LORCON_STATUS_MAX, "Interface %s doesn't exist", interface);
-			return NL80211_CHANLIST_NO_INTERFACE;
-		} 
+    void *nl_sock;
+    int nl80211_id;
 
-		snprintf(errstr, LORCON_STATUS_MAX, "LORCON could not find a parent phy device "
-				 "for interface %s, it isn't nl80211?", interface);
-		return NL80211_CHANLIST_NOT_NL80211;
-	}
+    struct nl_cb *cb;
+    int err;
+    struct nl_msg *msg;
 
-	if (nl80211_connect(interface, &handle, &cache, &family, errstr) < 0) {
-		return NL80211_CHANLIST_GENERIC;
-	}
+    cblock.phyname = nl80211_find_parent(interface);
+    if (strlen(cblock.phyname) == 0) {
+        if (if_nametoindex(interface) <= 0) {
+            snprintf(errstr, LORCON_STATUS_MAX, 
+                    "failed to get channels from interface '%s': interface does "
+                    "not exist.", interface);
+            return -1;
+        } 
 
-	msg = nlmsg_alloc();
-	cb = nl_cb_alloc(NL_CB_DEFAULT);
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "failed to find parent phy interface for interface '%s': interface "
+                "may not be a mac80211 wifi device?", interface);
+        return -1;
+    }
 
-	err = 1;
+    nl_sock = nl_socket_alloc();
+    if (!nl_sock) {
+        snprintf(errstr, LORCON_STATUS_MAX, "FATAL: Failed to allocate netlink socket");
+        return -1;
+    }
 
-	nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, nl80211_freqlist_cb, &cblock);
-	nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, nl80211_finish_cb, &err);
-	nl_cb_err(cb, NL_CB_CUSTOM, nl80211_error_cb, &err);
+    if (genl_connect(nl_sock)) {
+        snprintf(errstr, LORCON_STATUS_MAX, "FATAL: Failed to connect to generic netlink");
+        nl_socket_free(nl_sock);
+    }
 
-	genlmsg_put(msg, 0, 0, genl_family_get_id((struct genl_family *) family),
-			  0, NLM_F_DUMP, NL80211_CMD_GET_WIPHY, 0);
+    nl80211_id = genl_ctrl_resolve(nl_sock, "nl80211");
+    if (nl80211_id < 0) {
+        snprintf(errstr, LORCON_STATUS_MAX, "FATAL: Failed to resolve nl80211");
+        nl_socket_free(nl_sock);
+    }
 
-	if (nl_send_auto_complete((struct nl_sock *) handle, msg) < 0) {
-		snprintf(errstr, LORCON_STATUS_MAX, "%s: Failed to write nl80211 message",
-				__FUNCTION__);
-		nl80211_disconnect(handle);
-		return NL80211_CHANLIST_GENERIC;
-	}
+    msg = nlmsg_alloc();
 
-	while (err)
-		nl_recvmsgs((struct nl_sock *) handle, cb);
+    cb = nl_cb_alloc(NL_CB_DEFAULT);
 
-	nl80211_disconnect(handle);
-	(*ret_num_chans) = cblock.nfreqs;
-	(*ret_chan_list) = (int *) malloc(sizeof(int) * cblock.nfreqs);
-	memcpy(*ret_chan_list, cblock.channel_list, sizeof(int) * cblock.nfreqs);
+    err = 1;
 
-	free(cblock.channel_list);
-	free(cblock.phyname);
+    nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, nl80211_freqlist_cb, &cblock);
+	nl_cb_set(cb, NL_CB_ACK, NL_CB_CUSTOM, nl80211_ack_cb, &err);
+    nl_cb_set(cb, NL_CB_FINISH, NL_CB_CUSTOM, nl80211_finish_cb, &err);
+    nl_cb_err(cb, NL_CB_CUSTOM, nl80211_error_cb, &err);
 
-	return (*ret_num_chans);
+    genlmsg_put(msg, 0, 0, nl80211_id, 0, NLM_F_DUMP, NL80211_CMD_GET_WIPHY, 0);
+
+    /* Initialize the empty first channel list item */
+    cblock.channel_list = (struct nl80211_channel_list *) malloc(sizeof(struct nl80211_channel_list));
+    cblock.channel_list->channel = 0;
+    /*
+    cblock.channel_list->channel = NULL;
+    */
+    cblock.channel_list->next = NULL;
+    cblock.chan_list_last = cblock.channel_list;
+
+    if (nl_send_auto_complete((struct nl_sock *) nl_sock, msg) < 0) {
+        snprintf(errstr, LORCON_STATUS_MAX, 
+                "failed to fetch channels from interface '%s': failed to "
+                "write netlink command", interface);
+        nlmsg_free(msg);
+        nl_cb_put(cb);
+        nl_socket_free(nl_sock);
+        return -1;
+    }
+
+    while (err)
+        nl_recvmsgs((struct nl_sock *) nl_sock, cb);
+
+    nl_cb_put(cb);
+    nlmsg_free(msg);
+    nl_socket_free(nl_sock);
+
+    /* Convert our linked list into a channel block */
+
+    (*ret_num_chans) = cblock.nfreqs;
+    (*ret_chan_list) = malloc(sizeof(char *) * cblock.nfreqs);
+
+    num_freq = 0;
+
+    /* Skip the first item which is our placeholder */
+    chan_list_cur = cblock.channel_list->next;
+
+    while (chan_list_cur != NULL && num_freq < cblock.nfreqs) {
+        /* Use the dup'd string directly */
+        (*ret_chan_list)[num_freq++] = chan_list_cur->channel;
+
+        // fprintf(stderr, "debug - %u %s\n", num_freq, chan_list_cur->channel);
+
+        /* Shuffle the pointers */
+        chan_list_old = chan_list_cur;
+        chan_list_cur = chan_list_cur->next;
+        free(chan_list_old);
+    }
+
+    /* If we didn't process all the channels before we hit the end of the list... */
+    if (chan_list_cur != NULL || num_freq != cblock.nfreqs) {
+        fprintf(stderr, "ERROR - linux_netlink_control miscalculated the number of "
+                "channels somehow...\n");
+
+        /* Clean up list overrun */
+        while (chan_list_cur != NULL) {
+            chan_list_old = chan_list_cur;
+            chan_list_cur = chan_list_cur->next;
+            free(chan_list_old);
+        }
+
+        /* Clean up list underrun */
+        for ( ; num_freq < cblock.nfreqs; num_freq++) {
+            /*
+            (*ret_chan_list)[num_freq] = NULL;
+            */
+            (*ret_chan_list)[num_freq] = 0;
+        }
+    }
+
+    /* remove the list head ptr */
+    free(cblock.channel_list);
+    /* Remove the phyname */
+    free(cblock.phyname);
+
+    return (*ret_num_chans);
 #endif
 }
 

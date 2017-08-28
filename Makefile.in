@@ -21,8 +21,8 @@ INCLUDE = ${DESTDIR}@includedir@
 
 CC = @CC@
 LDFLAGS = @LDFLAGS@ -L$(LIB)
-LIBS = @LIBS@ 
-CFLAGS = -I./ @CPPFLAGS@ @CFLAGS@ -DLORCON_VERSION=$(VERSION) -I$(INCLUDE)
+LIBS = @LIBS@ @NLLIBS@
+CFLAGS = -I./ @CPPFLAGS@ @CFLAGS@ @NLCFLAGS@ -DLORCON_VERSION=$(VERSION) -I$(INCLUDE)
 SHELL = @SHELL@
 LIBTOOL = @LIBTOOL@
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(CFLAGS)
@@ -30,6 +30,7 @@ LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(CFLAGS)
 DEPEND = .depend
 
 LIBOBJ = ifcontrol_linux.lo iwcontrol.lo madwifing_control.lo nl80211_control.lo \
+		wifi_ht_channels.lo \
 		 lorcon_packet.lo lorcon_packasm.lo lorcon_forge.lo \
 		 drv_mac80211.lo drv_tuntap.lo drv_madwifing.lo drv_file.lo \
 		 sha1.lo \

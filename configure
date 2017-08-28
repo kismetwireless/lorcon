@@ -631,6 +631,8 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+NLCFLAGS
+NLLIBS
 libnl1_LIBS
 libnl1_CFLAGS
 libnl20_LIBS
@@ -735,7 +737,7 @@ with_sysroot
 enable_libtool_lock
 enable_airpcap
 with_airpcap_devpack
-with_netlink_version
+with_netlink_tiny
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1399,7 +1401,7 @@ Optional Packages:
   --with-sysroot[=DIR]    Search for dependent libraries within DIR (or the
                           compiler's sysroot if not specified).
   --with-airpcap=DIR     Location of the CACE AirPcap device pack NOTE cygwin appears to have link errors if the path is not within the current directory
-  --with-netlink-version=1|2|3     Force using libnl1, libnl2, or libnl-3
+  --with-netlink-tiny                       Force libnl-tiny
 
 Some influential environment variables:
   CC          C compiler command
@@ -11942,19 +11944,6 @@ fi # cygwin
 
 if test "$linux" = "yes"; then
 
-havenetlink=yes
-
-netlink_force=no
-
-
-# Check whether --with-netlink-version was given.
-if test "${with_netlink_version+set}" = set; then :
-  withval=$with_netlink_version;
-	netlink_force=$withval
-
-fi
-
-
 # Extract the first word of "pkg-config", so it can be a program name with args.
 set dummy pkg-config; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -12001,6 +11990,18 @@ fi
 NLLIBS=""
 NLCFLAGS=""
 nlname=""
+
+havenetlink=yes
+netlink_force=no
+
+
+# Check whether --with-netlink-tiny was given.
+if test "${with_netlink_tiny+set}" = set; then :
+  withval=$with_netlink_tiny;
+	netlink_force="tiny"
+
+fi
+
 
 if test "$havenetlink" = "yes"; then
 
@@ -12409,6 +12410,29 @@ $as_echo "yes" >&6; }
 fi
 
 	picked_nl=no
+
+    if test $netlink_force = "tiny"; then
+        picked_nl="tiny"
+        ac_fn_c_check_header_mongrel "$LINENO" "netlink/netlink.h" "ac_cv_header_netlink_netlink_h" "$ac_includes_default"
+if test "x$ac_cv_header_netlink_netlink_h" = xyes; then :
+
+$as_echo "#define HAVE_LIBNLTINY_HEADERS 1" >>confdefs.h
+
+else
+  as_fn_error $? "libnl-tiny requested but could not find headers" "$LINENO" 5
+fi
+
+
+
+
+$as_echo "#define HAVE_LIBNL 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_LIBNLTINY 1" >>confdefs.h
+
+        nlname="libnl-tiny"
+    fi
+
 	if test $picked_nl = "no" -a "$libnl30" = "yes" -a "$libnlgenl30" = "yes"; then
 		if test $netlink_force = "no" -o $netlink_force = "3"; then
 			picked_nl=3
@@ -12441,6 +12465,9 @@ $as_echo "#define HAVE_LIBNL20 1" >>confdefs.h
 
 $as_echo "#define HAVE_LIBNL 1" >>confdefs.h
 
+
+$as_echo "#define HAVE_LIBNL10 1" >>confdefs.h
+
 			nlname="libnl-1"
 		fi
 	fi
@@ -12450,15 +12477,19 @@ $as_echo "#define HAVE_LIBNL 1" >>confdefs.h
 	fi
 
 	if test "$nlname" != ""; then
-		NLLIBS=`pkg-config --libs $nlname`
-		NLCFLAGS=`pkg-config --cflags $nlname`
+        if test "$picked_nl" == "tiny"; then
+            NLLIBS="-lnl-tiny"
+        else
+		    NLLIBS=`pkg-config --libs $nlname`
+		    NLCFLAGS=`pkg-config --cflags $nlname`
+        fi
 	fi
 fi
 
 if test "$havenetlink" = "yes"; then
 	OLIBS="$LIBS"
 	LIBS="$LIBS $NLLIBS"
-	OCFL="$CPPFLAGS"
+	OCPPFL="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $NLCFLAGS"
 
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking For mac80211 support in netlink library" >&5
@@ -12490,12 +12521,15 @@ main ()
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  havenetlink=yes LIBS="$LIBS $NLLIBS"
+  havenetlink=yes
 else
-  havenetlink=no LIBS="$OLIBS"
+  havenetlink=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+
+	LIBS="$OLIBS"
+	CPPFLAGS="$OCPPFL"
 else
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Missing libnl netlink library will not be able to control mac80211 vaps" >&5
 $as_echo "$as_me: WARNING: Missing libnl netlink library will not be able to control mac80211 vaps" >&2;}
@@ -12509,6 +12543,9 @@ $as_echo "yes" >&6; }
 $as_echo "#define HAVE_LINUX_NETLINK 1" >>confdefs.h
 
 fi
+
+
+
 
 fi
 
