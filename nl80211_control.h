@@ -34,7 +34,8 @@ int nl80211_connect(const char *interface, void **nl_sock, int *nl80211_id,
 void nl80211_disconnect(void *nl_sock);
 
 /* Create monitor vap */
-int nl80211_createvap(const char *interface, const char *newinterface, char *errstr);
+int nl80211_createvif(const char *interface, const char *newinterface, 
+        unsigned int *in_flags, unsigned int flags_sz, char *errstr);
 
 /* Set channel or frequency.  Callers should prefer the cache_ option using nl80211_connect 
  * when setting multiple channels */
@@ -43,10 +44,10 @@ int nl80211_setchannel_cache(int ifidx, void *nl_sock, int nl80211_id,
         int channel, unsigned int chmode, char *errstr);
 
 /* Set complex frequency */
-int mac80211_set_frequency(const char *interface, unsigned int control_freq,
+int mac80211_setfrequency(const char *interface, unsigned int control_freq,
         unsigned int chan_width, unsigned int center_freq1, unsigned int center_freq2,
         char *errstr);
-int mac80211_set_frequency_cache(int ifidx, void *nl_sock, int nl80211_id, 
+int mac80211_setfrequency_cache(int ifidx, void *nl_sock, int nl80211_id, 
         unsigned int control_freq, unsigned int chan_width, unsigned int center_freq1, 
         unsigned int center_freq2, char *errstr);
 

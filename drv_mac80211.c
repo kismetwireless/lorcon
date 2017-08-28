@@ -110,13 +110,23 @@ int mac80211_openmon_cb(lorcon_t *context) {
 	socklen_t optlen;
     char vifname[MAX_IFNAME_LEN];
 
+    unsigned int num_flags = 2;
+    unsigned int fi;
+    unsigned int flags[2];
+
+    /* We always set these */
+    fi = 0;
+    flags[fi++] = nl80211_mntr_flag_control;
+    flags[fi++] = nl80211_mntr_flag_otherbss;
+
     if (context->vapname == NULL) {
         snprintf(vifname, MAX_IFNAME_LEN, "%smon", context->ifname);
         context->vapname = strdup(vifname);
 	}
 
 	if ((parent = nl80211_find_parent(context->vapname)) == NULL) {
-		if (nl80211_createvap(context->ifname, context->vapname, context->errstr) < 0) {
+		if (nl80211_createvif(context->ifname, context->vapname, flags, 
+                    num_flags, context->errstr) < 0) {
 			free(parent);
 			return -1;
 		}

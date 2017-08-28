@@ -156,7 +156,7 @@ void nl80211_disconnect(void *nl_sock) {
     nl_socket_free(nl_sock);
 }
 
-int nl80211_create_monitor_vif(const char *interface, const char *newinterface, 
+int nl80211_createvif(const char *interface, const char *newinterface, 
         unsigned int *in_flags, unsigned int flags_sz, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
     snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
@@ -251,7 +251,7 @@ nla_put_failure:
 #endif
 }
 
-int nl80211_set_channel_cache(int ifindex, void *nl_sock,
+int nl80211_setchannel_cache(int ifindex, void *nl_sock,
         int nl80211_id, int channel, unsigned int chmode, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
     snprintf(errstr, LORCON_STATUS_MAX, "Lorcon was not compiled with netlink/mac80211 "
@@ -310,7 +310,7 @@ int nl80211_set_channel(const char *interface, int channel,
         return -1;
 
     int ret = 
-        nl80211_set_channel_cache(ifidx, nl_sock, nl80211_id, channel, chmode, errstr);
+        nl80211_setchannel_cache(ifidx, nl_sock, nl80211_id, channel, chmode, errstr);
 
     nl80211_disconnect(nl_sock);
 
@@ -318,7 +318,7 @@ int nl80211_set_channel(const char *interface, int channel,
 #endif
 }
 
-int nl80211_set_frequency_cache(int ifindex, void *nl_sock, int nl80211_id, 
+int nl80211_setfrequency_cache(int ifindex, void *nl_sock, int nl80211_id, 
         unsigned int control_freq, unsigned int chan_width, 
         unsigned int center_freq1, unsigned int center_freq2,
         char *errstr) {
@@ -364,7 +364,7 @@ nla_put_failure:
 #endif
 }
 
-int nl80211_set_frequency(const char *interface, 
+int nl80211_setfrequency(const char *interface, 
         unsigned int control_freq, unsigned int chan_width,
         unsigned int center_freq1, unsigned int center_freq2,
         char *errstr) {
@@ -382,7 +382,7 @@ int nl80211_set_frequency(const char *interface,
     }
 
     int ret = 
-        nl80211_set_frequency_cache(ifidx, nl_sock, nl80211_id, 
+        nl80211_setfrequency_cache(ifidx, nl_sock, nl80211_id, 
                 control_freq, chan_width, center_freq1, center_freq2, errstr);
 
     nl80211_disconnect(nl_sock);
