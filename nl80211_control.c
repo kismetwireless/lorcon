@@ -53,7 +53,7 @@
 #include <errno.h>
 
 #include "nl80211_control.h"
-#include "wifi_ht_channels.h" 
+#include "wifi_ht_channels.h"
 
 // Libnl1->Libnl2 compatability mode since the API changed, cribbed from 'iw'
 #if defined(HAVE_LIBNL10)
@@ -76,7 +76,6 @@ static inline void nl_socket_free(struct nl_sock *h) {
 #endif
 }
 
-#endif
 #endif
 
 
@@ -116,7 +115,7 @@ int FreqToChan(int in_freq) {
 int nl80211_connect(const char *interface, void **nl_sock, 
         int *nl80211_id, int *if_index, char *errstr) {
 #ifndef HAVE_LINUX_NETLINK
-    snrptinf(errstr, LORCON_STATUS_MAX,
+    snprintf(errstr, LORCON_STATUS_MAX,
             "cannot connect to netlink; not compiled with netlink "
             "support.  Check the output of ./configure for more information");
     return -1;
@@ -150,6 +149,7 @@ int nl80211_connect(const char *interface, void **nl_sock,
     }
 
     return 0;
+#endif
 }
 
 void nl80211_disconnect(void *nl_sock) {
@@ -786,5 +786,4 @@ char *nl80211_find_parent(const char *interface) {
 	return NULL;
 }
 
-#endif /* linux */
-
+#endif /* SYS_LINUX */
