@@ -4,6 +4,10 @@ require 'mkmf'
 
 $CFLAGS += " -I/usr/include/lorcon2"
 
+if ( RUBY_VERSION =~ /^(1\.8)/ )
+	$CFLAGS += " -DRUBY_18"
+end
+
 if ( RUBY_VERSION =~ /^(1\.9|2\.0)/ )
 	$CFLAGS += " -DRUBY_19"
 end
