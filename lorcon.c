@@ -27,9 +27,11 @@
 
 #include <pcap.h>
 
-#include <lorcon.h>
-#include <lorcon_packet.h>
+#include "lorcon.h"
+#include "lorcon_packet.h"
 #include "lorcon_int.h"
+#include "wifi_ht_channels.h"
+
 
 #include "drv_mac80211.h"
 #include "drv_madwifing.h"
@@ -230,54 +232,128 @@ int lorcon_get_channel(lorcon_t *context) {
 	return (*(context->getchan_cb))(context);
 }
 
-int lorcon_set_ht_channel(lorcon_t *context, int channel, int flags) {
+int lorcon_set_ht_channel(lorcon_t *context, lorcon_channel_t *channel) {
     if (context->setchan_ht_cb == NULL) {
         snprintf(context->errstr, LORCON_STATUS_MAX,
                 "Driver %s does not support HT channels", context->drivername);
         return LORCON_ENOTSUPP;
     }
 
-    return (*(context->setchan_ht_cb))(context, channel, flags);
+    return (*(context->setchan_ht_cb))(context, channel);
 }
 
-int lorcon_get_ht_channel(lorcon_t *context, int *ret_flags) {
+unsigned int wifi_chan_to_freq(unsigned int in_chan) {
+    /* 802.11 channels to frequency; if it looks like a frequency, return as
+     * pure frequency; derived from iwconfig */
+
+    if (in_chan > 250)
+        return in_chan;
+
+    if (in_chan == 14)
+        return 2484;
+    else if (in_chan < 14)
+        return 2407 + in_chan * 5;
+    else if (in_chan >= 182 && in_chan <= 196)
+        return 4000 + in_chan * 5;
+    else
+        return 5000 + in_chan * 5;
+
+    return in_chan;
+}
+
+unsigned int wifi_freq_to_chan(unsigned int in_freq) {
+    if (in_freq < 250)
+        return in_freq;
+
+    /* revamped from iw */
+    if (in_freq == 2484)
+        return 14;
+
+    if (in_freq < 2484)
+        return (in_freq - 2407) / 5;
+
+    return in_freq / 5 - 1000;
+}
+
+int lorcon_get_ht_channel(lorcon_t *context, lorcon_channel_t *ret_channel) {
     if (context->getchan_ht_cb == NULL) {
         snprintf(context->errstr, LORCON_STATUS_MAX,
                 "Driver %s does not support getting HT channel", context->drivername);
         return LORCON_ENOTSUPP;
     }
 
-    return (*(context->getchan_ht_cb))(context, ret_flags);
+    return (*(context->getchan_ht_cb))(context, ret_channel);
 }
 
-int lorcon_parse_ht_channel(const char *in_chanstr, int *ret_channel, int *ret_flags) {
+int lorcon_parse_ht_channel(const char *in_chanstr, lorcon_channel_t *ret_channel) {
     char chtype[16];
+    unsigned int channel, ci;
     int r;
 
-    r = sscanf(in_chanstr, "%u%16s", ret_channel, chtype);
+    memset(ret_channel, 0, sizeof(lorcon_channel_t));
+
+    r = sscanf(in_chanstr, "%u%16s", &channel, chtype);
 
     if (r == 0) {
         /* Unable to parse */
-        *ret_channel = -1;
-        *ret_flags = 0;
         return 0;
     }
 
+    ret_channel->channel = wifi_chan_to_freq(channel);
+
     if (r == 1) {
         /* No channel flags */
-        *ret_flags = LORCON_CHANNEL_BASIC;
+        ret_channel->type = LORCON_CHANNEL_BASIC;
         return 1;
     }
 
     /* Parse flag types */
     if (strcasecmp(chtype, "HT20") == 0) {
-        *ret_flags = LORCON_CHANNEL_HT20;
+        ret_channel->type = LORCON_CHANNEL_HT20;
         return 1;
     } else if (strcasecmp(chtype, "HT40+") == 0) {
-        *ret_flags = LORCON_CHANNEL_HT40P;
+        ret_channel->type = LORCON_CHANNEL_HT40P;
+        ret_channel->center_freq_1 = ret_channel->channel + 10;
         return 1;
     } else if (strcasecmp(chtype, "HT40-") == 0) {
-        *ret_flags = LORCON_CHANNEL_HT40M;
+        ret_channel->type = LORCON_CHANNEL_HT40M;
+        ret_channel->center_freq_1 = ret_channel->channel - 10;
+        return 1;
+    } else if (strcasecmp(chtype, "VHT80") == 0) {
+        ret_channel->type = LORCON_CHANNEL_VHT80;
+        for (ci = 0; ci < sizeof(wifi_ht_channels) / sizeof(wifi_channel); ci++) {
+            if (wifi_ht_channels[ci].chan == channel ||
+                    wifi_ht_channels[ci].freq == channel) {
+                if ((wifi_ht_channels[ci].flags & WIFI_HT_HT80) == 0) {
+                    return 0;
+                }
+
+                ret_channel->center_freq_1 = wifi_ht_channels[ci].freq80;
+                return 1;
+            }
+        }
+
+        return 0;
+    } else if (strcasecmp(chtype, "VHT160") == 0) {
+        ret_channel->type = LORCON_CHANNEL_VHT160;
+        for (ci = 0; ci < sizeof(wifi_ht_channels) / sizeof(wifi_channel); ci++) {
+            if (wifi_ht_channels[ci].chan == channel ||
+                    wifi_ht_channels[ci].freq == channel) {
+                if ((wifi_ht_channels[ci].flags & WIFI_HT_HT160) == 0) {
+                    return 0;
+                }
+
+                ret_channel->center_freq_1 = wifi_ht_channels[ci].freq160;
+                return 1;
+            }
+        }
+
+        return 0;
+    } else if (strcasecmp(chtype, "W10") == 0) {
+        ret_channel->type = LORCON_CHANNEL_10MHZ;
+        return 1;
+    } else if (strcasecmp(chtype, "W5") == 0) {
+        ret_channel->type = LORCON_CHANNEL_5MHZ;
         return 1;
     }
 

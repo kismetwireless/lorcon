@@ -90,8 +90,8 @@ struct lorcon {
 	int (*setchan_cb)(lorcon_t *context, int chan);
 	int (*getchan_cb)(lorcon_t *context);
 
-	int (*setchan_ht_cb)(lorcon_t *context, int chan, int flags);
-	int (*getchan_ht_cb)(lorcon_t *context, int *ret_flags);
+    int (*setchan_ht_cb)(lorcon_t *context, lorcon_channel_t *channel);
+	int (*getchan_ht_cb)(lorcon_t *context, lorcon_channel_t *ret_channel);
 
 	int (*sendpacket_cb)(lorcon_t *context, lorcon_packet_t *packet);
 	int (*getpacket_cb)(lorcon_t *context, lorcon_packet_t **packet);

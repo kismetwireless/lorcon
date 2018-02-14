@@ -92,6 +92,16 @@
 #define NL80211_CHAN_HT40MINUS          2
 #define NL80211_CHAN_HT40PLUS           3
 
+/* netlink channel widths */
+#define NL80211_CHAN_WIDTH_20_NOHT      0
+#define NL80211_CHAN_WIDTH_20           1
+#define NL80211_CHAN_WIDTH_40           2
+#define NL80211_CHAN_WIDTH_80           3
+#define NL80211_CHAN_WIDTH_80P80        4
+#define NL80211_CHAN_WIDTH_160          5
+#define NL80211_CHAN_WIDTH_5            6
+#define NL80211_CHAN_WIDTH_10           7
+
 struct mac80211_lorcon {
 	void *nlhandle;
     int nl80211id;
@@ -229,22 +239,37 @@ int mac80211_getchan_cb(lorcon_t *context) {
 	return ch;
 }
 
-int mac80211_setchan_ht_cb(lorcon_t *context, int channel, int flags) {
+int mac80211_setchan_ht_cb(lorcon_t *context, lorcon_channel_t *channel) {
 	struct mac80211_lorcon *extras = (struct mac80211_lorcon *) context->auxptr;
+
     int nlflags = 0;
 
-    if (flags == LORCON_CHANNEL_HT20) {
-        nlflags = NL80211_CHAN_HT20;
-    } else if (flags == LORCON_CHANNEL_HT40P) {
-        printf("40+\n");
-        nlflags = NL80211_CHAN_HT40PLUS;
-    } else if (flags == LORCON_CHANNEL_HT40M) {
-        printf("40-\n");
-        nlflags = NL80211_CHAN_HT40MINUS;
+    switch (channel->type) {
+        case LORCON_CHANNEL_HT20:
+            nlflags = NL80211_CHAN_HT20;
+            break;
+        case LORCON_CHANNEL_HT40M:
+        case LORCON_CHANNEL_HT40P:
+            nlflags = NL80211_CHAN_WIDTH_40;
+            break;
+        case LORCON_CHANNEL_VHT80:
+            nlflags = NL80211_CHAN_WIDTH_80;
+            break;
+        case LORCON_CHANNEL_VHT160:
+            nlflags = NL80211_CHAN_WIDTH_160;
+            break;
+        case LORCON_CHANNEL_5MHZ:
+            nlflags = NL80211_CHAN_WIDTH_5;
+            break;
+        case LORCON_CHANNEL_10MHZ:
+            nlflags = NL80211_CHAN_WIDTH_10;
+            break;
     }
 
-	if (nl80211_setchannel_cache(extras->ifidx, extras->nlhandle, extras->nl80211id,
-                channel, nlflags, context->errstr) < 0) {
+
+	if (nl80211_setfrequency_cache(extras->ifidx, extras->nlhandle, extras->nl80211id,
+                channel->channel, nlflags, channel->center_freq_1, channel->center_freq_2,
+                context->errstr) < 0) {
 		return -1;
 	}
 

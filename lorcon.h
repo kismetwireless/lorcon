@@ -32,16 +32,14 @@
 
 #define LORCON_MAX_PACKET_LEN	8192
 
-#define LORCON_CHANNEL_BASIC    0
-#define LORCON_CHANNEL_HT20     1
-#define LORCON_CHANNEL_HT40P    2
-#define LORCON_CHANNEL_HT40M    3
-
 struct pcap;
 typedef struct pcap pcap_t;
 
 struct lorcon;
 typedef struct lorcon lorcon_t;
+
+struct lorcon_channel;
+typedef struct lorcon_channel lorcon_channel_t;
 
 struct bpf_program;
 
@@ -119,17 +117,44 @@ int lorcon_set_datalink(lorcon_t *context, int dlt);
 int lorcon_set_channel(lorcon_t *context, int channel);
 int lorcon_get_channel(lorcon_t *context);
 
-int lorcon_set_ht_channel(lorcon_t *context, int channel, int flags);
-int lorcon_get_ht_channel(lorcon_t *context, int *ret_flags);
+struct lorcon_channel {
+    unsigned int channel;
+    unsigned int center_freq_1;
+    unsigned int center_freq_2;
 
-/* Parse a channel string into HT flags, populating ret_channel and
- * ret_flags parameters.
+    unsigned int type;
+};
+
+#define LORCON_CHANNEL_BASIC    0
+#define LORCON_CHANNEL_HT20     1
+#define LORCON_CHANNEL_HT40P    2
+#define LORCON_CHANNEL_HT40M    3
+#define LORCON_CHANNEL_5MHZ     4
+#define LORCON_CHANNEL_10MHZ    5
+#define LORCON_CHANNEL_VHT80    6
+#define LORCON_CHANNEL_VHT160   7
+#define LORCON_CHANNEL_VHT8080  8
+
+/* Set an advanced channel */
+int lorcon_set_complex_channel(lorcon_t *context, lorcon_channel_t *channel);
+
+/* Get the current channel, as a complex record; caller is responsible for 
+   supplying an allocated lorcon_channel_t 
+
+   Returns:
+   0 - Failure
+   1 - Success
+*/
+int lorcon_get_ht_channel(lorcon_t *context, lorcon_channel_t *ret_channel);
+
+/* Parse a channel string into HT flags, populating ret_channel; caller
+ * is responsible for providing an allocated lorcon_channel_t
  *
  * Returns:
  *  0 - Failure
  *  1 - Success
  */
-int lorcon_parse_ht_channel(const char *in_chanstr, int *ret_channel, int *ret_flags);
+int lorcon_parse_ht_channel(const char *in_chanstr, lorcon_channel_t *ret_channel);
 
 /* Get/set MAC address, returns length of MAC and allocates in **mac,
  * caller is responsible for freeing this memory.  Different PHY types

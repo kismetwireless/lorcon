@@ -44,10 +44,10 @@ int nl80211_setchannel_cache(int ifidx, void *nl_sock, int nl80211_id,
         int channel, unsigned int chmode, char *errstr);
 
 /* Set complex frequency */
-int mac80211_setfrequency(const char *interface, unsigned int control_freq,
+int nl80211_setfrequency(const char *interface, unsigned int control_freq,
         unsigned int chan_width, unsigned int center_freq1, unsigned int center_freq2,
         char *errstr);
-int mac80211_setfrequency_cache(int ifidx, void *nl_sock, int nl80211_id, 
+int nl80211_setfrequency_cache(int ifidx, void *nl_sock, int nl80211_id, 
         unsigned int control_freq, unsigned int chan_width, unsigned int center_freq1, 
         unsigned int center_freq2, char *errstr);
 
