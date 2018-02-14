@@ -142,17 +142,17 @@ int lorcon_set_complex_channel(lorcon_t *context, lorcon_channel_t *channel);
    supplying an allocated lorcon_channel_t 
 
    Returns:
-   0 - Failure
-   1 - Success
+   0 - Success
+   Non-0 - Failure
 */
-int lorcon_get_ht_channel(lorcon_t *context, lorcon_channel_t *ret_channel);
+int lorcon_get_complex_channel(lorcon_t *context, lorcon_channel_t *ret_channel);
 
 /* Parse a channel string into HT flags, populating ret_channel; caller
- * is responsible for providing an allocated lorcon_channel_t
- *
- * Returns:
- *  0 - Failure
- *  1 - Success
+   is responsible for providing an allocated lorcon_channel_t
+  
+   Returns:
+   0 - Success
+   Non-0 - Failure
  */
 int lorcon_parse_ht_channel(const char *in_chanstr, lorcon_channel_t *ret_channel);
 

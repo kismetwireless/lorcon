@@ -965,19 +965,49 @@ static PyObject*
 PyLorcon2_Context_set_channel(PyLorcon2_Context *self, PyObject *args, PyObject *kwds)
 {
     int channel;
-
-    if (!PyArg_ParseTuple(args, "i", &channel))
-        return NULL;
+    lorcon_channel_t complex_channel;
+    PyObject *complexchan, *complexchan_string;
+    char *complex_buffer;
+    ssize_t complex_size;
 
     if (!self->monitored) {
         PyErr_SetString(PyExc_RuntimeError, "Context must be in monitor/injection-mode");
         return NULL;
     }
 
-    if (lorcon_set_channel(self->context, channel) != 0) {
-        PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
-        return NULL;
+
+    if (PyArg_ParseTuple(args, "i", &channel)) {
+        if (lorcon_set_channel(self->context, channel) != 0) {
+            PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
+            return NULL;
+        }
+    } else if (PyArg_ParseTuple(args, "O", &complexchan)) {
+        complexchan_string = PyObject_Str(complexchan);
+        if (!complexchan_string) {
+            PyErr_SetString(PyExc_ValueError, "Failed to get string-representation from object.");
+            return NULL;
+        }
+
+        if (PyString_AsStringAndSize(complexchan_string, &complex_buffer, &complex_size)) {
+            Py_DECREF(complexchan_string);
+            return NULL;
+        }
+
+        if (lorcon_parse_ht_channel(complex_buffer, &complex_channel) != 0) {
+            Py_DECREF(complexchan_string);
+            PyErr_SetString(PyExc_ValueError, "Failed to get parse channel");
+            return NULL;
+        }
+
+        if (lorcon_set_complex_channel(self->context, &complex_channel) != 0) {
+            PyErr_SetString(Lorcon2Exception, lorcon_get_error(self->context));
+            Py_DECREF(complexchan_string);
+            return NULL;
+        }
+
+        Py_DECREF(complexchan_string);
     }
+
 
     Py_INCREF(Py_None);
     return Py_None;
