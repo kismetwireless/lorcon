@@ -21,7 +21,8 @@ from distutils.core import setup, Extension
 PyLorcon2 = Extension('PyLorcon2',
                       sources = ['PyLorcon2.c'],
                       libraries = ['orcon2'],
-                      extra_compile_args = ["-fPIC"], )
+                      extra_compile_args = ["-fPIC"],
+                      extra_link_args = ["-fPIC"],)
 
 setup(name = 'PyLorcon2',
       version = '0.2',
