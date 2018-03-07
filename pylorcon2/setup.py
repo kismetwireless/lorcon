@@ -20,7 +20,8 @@ from distutils.core import setup, Extension
 
 PyLorcon2 = Extension('PyLorcon2',
                       sources = ['PyLorcon2.c'],
-                      libraries = ['orcon2'])
+                      libraries = ['orcon2'],
+                      extra_compile_args = ["-fPIC"], )
 
 setup(name = 'PyLorcon2',
       version = '0.2',
@@ -41,7 +42,7 @@ setup(name = 'PyLorcon2',
                'Topic :: System :: Networking',
                'Topic :: Software Development :: Libraries'],
       platforms = ['any'],
-      author = 'Andres Blanco (6e726d), Ezequiel Gutesman (gutes)',
-      author_email = '6e726d@gmail.com, egutesman@gmail.com',
+      author = 'Andres Blanco (6e726d), Ezequiel Gutesman (gutes), Mike Kershaw (dragorn)',
+      author_email = '6e726d@gmail.com, egutesman@gmail.com, dragorn@kismetwireless.net',
       url = 'http://code.google.com/p/pylorcon2',
       ext_modules = [PyLorcon2])
