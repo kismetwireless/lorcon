@@ -1,0 +1,6 @@
+PylorconFFI
+
+PylorconFFI is an alternate implementation of the Python API for Lorcon2, 
+implemented using the CFFI interface.  This API will take the place of
+PyLorcon2 over time.
+
