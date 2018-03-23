@@ -50,13 +50,13 @@ typedef int (*lorcon_drv_init)(lorcon_t *);
 typedef int (*lorcon_drv_probe)(const char *);
 
 struct lorcon_driver {
+	struct lorcon_driver *next;
+
 	char *name;
 	char *details;
 
 	lorcon_drv_init init_func;
 	lorcon_drv_probe probe_func;
-
-	struct lorcon_driver *next;
 };
 typedef struct lorcon_driver lorcon_driver_t;
 
