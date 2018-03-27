@@ -1,5 +1,13 @@
 #!/usr/bin/env python2
 
+"""
+PyLorcon FFI
+
+A re-implementation of the PyLorcon API using the CFFI
+layer, which should greatly simplify the translation
+between C and Python.
+"""
+
 from _pylorcon_ffi import ffi
 from ctypes import util as ctypesutil
 
@@ -16,6 +24,9 @@ class LorconTransmitError(LorconError):
     pass
 
 class LorconFFI_Driver:
+    """ 
+    A python representation of a Lorcon Driver
+    """
     def __init__(self, driver):
         if driver == ffi.NULL:
             raise RuntimeError("driver record null")
@@ -27,7 +38,14 @@ class LorconFFI_Driver:
     def __str__(self):
         return "LorconDriver [{},{}]".format(self.name, self.details)
 
+    def get_driver(self):
+        return self.driver
+
+
 class LorconFFI_Channel:
+    """
+    A python instance of a complex Lorcon channel
+    """
     def __init__(self, complexchan):
         if complexchan == ffi.NULL:
             raise RuntimeError("channel null")
@@ -53,7 +71,35 @@ class LorconFFI_Channel:
     def __str__(self):
         return "LorconChannel [{}({},{}){}]".format(self.channel, self.center_1, self.center_2, self.types[self.type])
 
+    def get_channel(self):
+        return self.complexchan
+
 class LorconFFI:
+    """
+    LorconFFI
+
+    The main Lorcon interface bridge.
+
+    Usage:
+
+        l = LorconFFI()
+
+        # Auto-driver matching
+        l.connect("wlan0")
+
+        # Open in injection+monitor
+        l.open_injmon()
+
+        # Set channel
+        l.set_channel("6")
+
+        # Set complex/HT channel
+        l.set_channel("53HT40+")
+
+        # Send some bytes
+        l.inject("\x00\x01\x02\x03\x04")
+    """
+
     def __init__(self):
         self.lib = ffi.dlopen("liborcon2-2.0.0.so")
 
@@ -62,21 +108,47 @@ class LorconFFI:
         self.context = ffi.NULL
 
     def version(self):
+        """
+        Return lorcon library version
+
+        :return: Version string
+        """
         return self.lib.lorcon_get_version()
 
     def error(self):
+        """
+        Return lorcon error
+
+        :return: Error string
+
+        :throws LorconError: Not connected to Lorcon context
+        """
         if self.context == ffi.NULL:
             raise LorconError("not connected to lorcon context")
 
         return ffi.string(self.lib.lorcon_get_error(self.context))
 
     def find_driver(self, interface):
+        """
+        Attempt to find a Lorcon driver for an interface
+
+        :param interface: Wlan interface
+
+        :return: FFI lorcon driver object, wrap with LorconFFI_Driver() to process
+
+        :throws LorconDriverNotFoundError: Unable to find a Lorcon driver
+        """
         d = self.lib.lorcon_auto_driver(interface)
         if d == ffi.NULL:
             raise LorconDriverNotFoundError("Could not find driver for interface {}".format(interface))
         return d
 
     def list_drivers(self):
+        """
+        List all drivers Lorcon has available
+
+        :return: Array of LorconFFI_Driver objects
+        """
         ret = []
         drivers = self.lib.lorcon_list_drivers()
         driveri = drivers
@@ -87,11 +159,25 @@ class LorconFFI:
         self.lib.lorcon_free_driver_list(drivers)
         return ret
 
-    def connect(self, interface, driver = ffi.NULL):
+    def connect(self, interface, driver = None):
+        """
+        Connect to a Lorcon context; this must be called before setting
+        mode, channel, or injecting.
+
+        :param interface: Wlan interface
+        :param driver: Optional Lorcon driver
+
+        :returns: None
+
+        :throws LorconError: Unable to connect to lorcon
+        :throws LorconDriverNotFoundError: Unable to find a Lorcon driver
+        """
         self.interface = interface
 
-        if driver == ffi.NULL:
+        if driver == None:
             self.driver = self.find_driver(interface)
+        elif isinstance(driver, LorconFFI_Driver):
+            self.driver = driver.get_driver()
         else:
             self.driver = driver
 
@@ -101,24 +187,62 @@ class LorconFFI:
             raise LorconError("Could not connect Lorcon to {}, {}".format(interface, driver))
 
     def set_vif(self, vif):
+        """
+        Set the virtual network interface to be used for monitor mode;
+        Lorcon will attempt to figure this out but for extremely long
+        interface names under the new naming scheme, a vif must be provided.
+
+        Must be called AFTER connect()
+
+        :param vif: Virtual device interface
+
+        :return: None
+
+        :throws LorconError: No open lorcon context
+        """
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
         self.lib.lorcon_set_vap(self.context, vif)
 
     def get_vif(self):
+        """
+        Get the virtual network interface being used for monitor mode
+
+        :return: Virtual device interface
+
+        :throws LorconError: No open lorcon context
+        """
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
         return ffi.string(self.lib.lorcon_get_vap(self.context))
 
     def get_capiface(self):
+        """
+        Get the capture interface being used for receiving packets.
+        Typically this will be the same as the vif.
+
+        :return: Capture device interface
+
+        :throws LorconError: No open Lorcon context
+        """
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
         return ffi.string(self.lib.lorcon_get_capiface(self.context))
 
     def open_inject(self, interface = None, driver = ffi.NULL):
+        """
+        Attempt to open the device in inject mode.  This will open in a
+        mode where *at least* inject works; it MAY be possible to also 
+        capture in monitor mode.
+
+        :param interface: Optional interface; connect to this interface 
+            if not connected to Lorcon already
+        :param driver: Optional driver; use this driver if connecting to
+            a new interface.
+        """
         if self.context == ffi.NULL:
             self.connect(interface, driver)
 
