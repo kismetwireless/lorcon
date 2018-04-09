@@ -107,6 +107,9 @@ class LorconFFI:
         self.driver = ffi.NULL
         self.context = ffi.NULL
 
+        if self.version() < 20180302:
+            raise LorconError("The installed LORCON library is too old, make sure to update to the latest lorcon2 to use this API ({} < 20180302)".format(self.version()))
+
     def version(self):
         """
         Return lorcon library version
