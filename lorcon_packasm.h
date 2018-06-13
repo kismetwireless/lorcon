@@ -163,6 +163,8 @@ void lcpa_free(struct lcpa_metapack *in_head);
 /* Get the size of an assembled LCPA packet */
 int lcpa_size(struct lcpa_metapack *in_head);
 
+#include <sys/types.h>
+
 /* Freeze a LCPA fragment packet into a bytestream.  The caller is responsible
  * for providing a bytestream of sufficient length. */
 void lcpa_freeze(struct lcpa_metapack *in_head, u_char *bytes);
