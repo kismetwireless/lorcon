@@ -21,7 +21,7 @@
     Author: Ezequiel Gutesman (gutes)  <egutesman@gmail.com>
 */
 
-#include <python2.7/Python.h>
+#include <python3.6/Python.h>
 #include <lorcon2/lorcon.h>
 #include <lorcon2/lorcon_multi.h>
 

@@ -64,7 +64,7 @@ class PyLorcon2TestCase(unittest.TestCase):
         
     def testInjection(self):
         self.ctx.open_injmon()
-        num_sent = self.ctx.send_bytes(self.data)
+        num_sent = self.ctx.send_bytes(bytes(self.data, 'utf8'))
         # The driver may or may not put a RadioTap-header in front of our
         # packet, so num_sent may be larger than len(self.data). The two are
         # equal if this is done in hardware.
