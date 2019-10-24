@@ -130,7 +130,57 @@ int mac80211_openmon_cb(lorcon_t *context) {
     flags[fi++] = nl80211_mntr_flag_otherbss;
 
     if (context->vapname == NULL) {
-        snprintf(vifname, MAX_IFNAME_LEN, "%smon", context->ifname);
+        // Some versions of Linux don't like interface names that are longer than 15 bytes.  
+        // Appending `mon` to the end of the interface is accounted for with the +3
+        if (strlen(context->ifname) + 3 >= 16) {
+            // Alert the user that we're about to mangle the VAP name
+            fprintf(stdout, "[+] Interface name is too long.  Attempting to use monX\n");
+
+            // Flag to tell if a valid name could be found
+            int found = 0;
+            
+            // Walk through up to 10 interface names (0-9).  Using more than that would require
+            // a little more C code. 
+            // TODO: Not sure if the same VAP name can be used twice safely, so creating a new one
+            //       each time.  This will eventually cause an exhaustion of monX names unless the
+            //       old interface name is cleaned up, or the device unplugged.
+            for (char index_num = '0'; index_num <= '9'; index_num++) {
+                // My C sucks, so here's my janky way of setting a string up
+                char temp_name[5];
+                temp_name[0] = 'm';
+                temp_name[1] = 'o';
+                temp_name[2] = 'n';
+                temp_name[3] = index_num;
+
+                // Always add a NULL terminator
+                temp_name[4] = '\0';
+
+                fprintf(stdout, "[+] Attempting to use VAP name \"%s\"\n", temp_name);
+
+                // Ask the OS if this interface exists
+                // TODO: Attempt to create a VAP from here and see if it fails?  Would likely be more
+                //       useful as it wouldn't increment monX names until the end of time (or 9...)
+                if(ifconfig_get_sysdriver(temp_name) == NULL) {
+                    // If the interface name was not found, then that means the name is available
+
+                    snprintf(vifname, MAX_IFNAME_LEN, "%s", temp_name);
+                    fprintf(stdout, "[+] Using monitor interface name \"%s\"\n", temp_name);
+                    found = 1;
+                    break;
+                } else {
+                    fprintf(stdout, "[+] VAP name \"%s\" already exists\n", temp_name);
+                }
+            }
+
+            if (found == 0) {
+                fprintf(stderr, "[!] Could not create a valid VAP name\n");
+                fprintf(stdout, "[*] Delete the monX interfaces, or try unplugging, and replugging the device\n");
+                exit(-1);
+            }
+        } else {
+            snprintf(vifname, MAX_IFNAME_LEN, "%smon", context->ifname);
+        }
+
         context->vapname = strdup(vifname);
 	}
 
