@@ -165,8 +165,10 @@ for pcap_file in results.pcap:
             #pprint.pprint(j)
 
             # Extract the rtap signal
-            pcap_signal = int(j['layers']['radiotap']['radiotap_radiotap_dbm_antsignal'])
-
+            try:
+                pcap_signal = int(j['layers']['radiotap']['radiotap_radiotap_dbm_antsignal'])
+            except TypeError:
+                pcap_signal = int(j['layers']['radiotap']['radiotap_radiotap_dbm_antsignal'][0])
             # Extract the all-tags record; we can't get the per-tag record easily
             # so we need to process the IE records manually; convert to ascii from utf-8 hex
             pcap_all_tags = j['layers']['wlan_mgt']['wlan_mgt_wlan_mgt_tagged_all_raw'].decode("utf-8")
