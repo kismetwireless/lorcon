@@ -61,7 +61,8 @@ int main(int argc, char *argv[]) {
     unsigned int npackets = 100;
 
 	int c;
-    int channel, ch_flags;
+    lorcon_channel_t channel;
+    const char *channel_str;
 
 	lorcon_driver_t *drvlist, *driver;
 	lorcon_t *context;
@@ -114,10 +115,11 @@ int main(int argc, char *argv[]) {
 				interface = strdup(optarg);
 				break;
 			case 'c':
-                if (lorcon_parse_ht_channel(optarg, &channel, &ch_flags) == 0) {
+                if (lorcon_parse_ht_channel(optarg, &channel) == 0) {
                     printf("ERROR: Unable to parse channel\n");
                     return -1;
                 }
+                channel_str = strdup(optarg);
 				break;
             case 'l':
                 if (sscanf(optarg, "%u", &lcode) != 1) {
@@ -205,9 +207,10 @@ int main(int argc, char *argv[]) {
     }
 
 	// Set the channel we'll be injecting on
-	lorcon_set_ht_channel(context, channel, ch_flags);
+	lorcon_set_complex_channel(context, &channel);
 
-	printf("[+]\t Using channel: %d flags %d\n\n", channel, ch_flags);
+	printf("[+]\t Using channel: %s (%d center %d type %d\n\n", channel_str,
+            channel.channel, channel.center_freq_1, channel.type);
 
     printf("\n[.]\tNon-MCS Calibration\n");
     for (count = 0; count < npackets; count++) {
