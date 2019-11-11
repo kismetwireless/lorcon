@@ -53,38 +53,21 @@ void iwfloat2freq(double in_val, struct iw_freq *out_freq)
 
 int floatchan2int(float in_chan)
 {
-	int mod_chan = (int)rintf(in_chan / 1000000);
-	int x = 0;
-	/* 80211b frequencies to channels */
-	int IEEE80211Freq[] = {
-		2412, 2417, 2422, 2427, 2432,
-		2437, 2442, 2447, 2452, 2457,
-		2462, 2467, 2472, 2484,
-		5180, 5200, 5210, 5220, 5240,
-		5250, 5260, 5280, 5290, 5300,
-		5320, 5745, 5760, 5765, 5785,
-		5800, 5805, 5825,
-		-1
-	};
+    if (in_chan == 0)
+        return 0;
 
-	int IEEE80211Ch[] = {
-		1, 2, 3, 4, 5,
-		6, 7, 8, 9, 10,
-		11, 12, 13, 14,
-		36, 40, 42, 44, 48,
-		50, 52, 56, 58, 60,
-		64, 149, 152, 153, 157,
-		160, 161, 165
-	};
+    if (in_chan == 2484)
+        return 14;
+    else if (in_chan < 2484)
+        return (in_chan - 2407) / 5;
+    else if (in_chan >= 4910 && in_chan <= 4980)
+        return (in_chan - 4000) / 5;
+    else if (in_chan <= 45000)
+        return (in_chan - 5000) / 5;
+    else if (in_chan >= 58320 && in_chan <= 64800)
+        return (in_chan - 56160) / 2160;
 
-	while (IEEE80211Freq[x] != -1) {
-		if (IEEE80211Freq[x] == mod_chan) {
-			return IEEE80211Ch[x];
-		}
-		x++;
-	}
-
-	return 0;
+    return in_chan;
 }
 
 int iwconfig_set_ssid(const char *in_dev, char *errstr, char *in_essid)
