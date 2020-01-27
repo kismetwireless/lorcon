@@ -3,13 +3,13 @@ developed by Joshua Wright and dragorn. This interface is only
 available on Linux and with lorcon-supported wireless drivers.
 
 For more information, please see the lorcon documentation and code:
-http://www.802.11mercenary.net/lorcon/
+https://github.com/kismetwireless/lorcon/
 
 To build this extension:
 
 1) Download, compile, and install lorcon
 The latest version of lorcon can pulled from SVN:
-$ svn co https://802.11ninja.net/svn/lorcon/trunk/ lorcon
+$ git clone https://github.com/kismetwireless/lorcon.git lorcon
 $ cd lorcon
 $ ./configure
 $ make

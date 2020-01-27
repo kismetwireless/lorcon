@@ -530,12 +530,12 @@ static VALUE Lorcon_capture_next(VALUE self) {
 	Data_Get_Struct(self, struct rldev, rld);
 
 	pd = lorcon_get_pcap(rld->context);
-	
-#ifndef RUBY_19
+
+#ifdef RUBY_18
 	TRAP_BEG;
 #endif
 	ret = pcap_dispatch(pd, 1, (pcap_handler) rblorcon_pcap_handler, (u_char *)&job);
-#ifndef RUBY_19
+#ifdef RUBY_18
 	TRAP_END;
 #endif
 		
