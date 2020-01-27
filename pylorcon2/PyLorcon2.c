@@ -22,7 +22,7 @@
 */
 
 
-#include <python2.7/Python.h>
+#include <python3.6/Python.h>
 #include <lorcon2/lorcon.h>
 #include <lorcon2/lorcon_packet.h>
 #include <lorcon2/lorcon_multi.h>
@@ -355,8 +355,7 @@ static PyMethodDef PyLorcon2_Packet_Methods[] =
 };
 
 static PyTypeObject PyLorcon2_PacketType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                                        /* ob_size */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "PyLorcon2.Packet",                       /* tp_name */
     sizeof(PyLorcon2_Packet),                 /* tp_basic_size */
     0,                                        /* tp_itemsize */
@@ -426,8 +425,7 @@ static PyMethodDef PyLorcon2_Multi_Methods[] =
 };
 
 static PyTypeObject PyLorcon2_MultiType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                                        /* ob_size */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "PyLorcon2.Multi",                        /* tp_name */
     sizeof(PyLorcon2_Multi),                  /* tp_basic_size */
     0,                                        /* tp_itemsize */
@@ -514,8 +512,7 @@ static PyMethodDef PyLorcon2_Context_Methods[] =
 };
 
 static PyTypeObject PyLorcon2_ContextType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                                        /* ob_size */
+    PyVarObject_HEAD_INIT(NULL, 0)
     "PyLorcon2.Context",                      /* tp_name */
     sizeof(PyLorcon2_Context),                /* tp_basic_size */
     0,                                        /* tp_itemsize */
@@ -563,25 +560,42 @@ static PyTypeObject PyLorcon2_ContextType = {
     
     ###########################################################################
 */
+    static struct PyModuleDef moduledef = {
+        PyModuleDef_HEAD_INIT,
+        "PyLorcon2",
+        "Wrapper for the Lorcon2 library",
+        -1,
+        PyLorcon2Methods,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    };
 
 PyMODINIT_FUNC
-initPyLorcon2(void)
+PyInit_PyLorcon2(void)
 {
-    PyObject *m;
+    PyObject *m = PyModule_Create(&moduledef);
+    if (m == NULL){
+        fprintf(stdout, "ERRR\n");
+        return NULL;
+    }
+    
+    int ret;
+    if((ret = PyType_Ready(&PyLorcon2_ContextType)) < 0) {
+        fprintf(stdout, "ContextType retcode: %d\n", ret);
+        return NULL;
+    }
 
-    if(PyType_Ready(&PyLorcon2_ContextType) < 0)
-        return;
+    if((ret = PyType_Ready(&PyLorcon2_PacketType)) < 0) {
+        fprintf(stdout, "PacketType retcode: %d\n", ret);
+        return NULL;
+    }
 
-    if(PyType_Ready(&PyLorcon2_PacketType) < 0)
-        return;
-
-    if(PyType_Ready(&PyLorcon2_MultiType) < 0)
-        return;
-
-    m = Py_InitModule3("PyLorcon2", PyLorcon2Methods, "Wrapper for the Lorcon2 library");
-
-    if(m == NULL)
-        return;
+    if((ret = PyType_Ready(&PyLorcon2_MultiType)) < 0) {
+        fprintf(stdout, "MultiType retcode: %d\n", ret);
+        return NULL;
+    }
 
     /* Lorcon2 Exception */
     Lorcon2Exception = PyErr_NewException("PyLorcon2.Lorcon2Exception", NULL, NULL);
@@ -594,7 +608,7 @@ initPyLorcon2(void)
     PyLorcon2_ContextType.tp_setattro = PyObject_GenericSetAttr;
     PyLorcon2_ContextType.tp_alloc  = PyType_GenericAlloc;
     PyLorcon2_ContextType.tp_new = PyType_GenericNew;
-    PyLorcon2_ContextType.tp_free = _PyObject_Del;
+    PyLorcon2_ContextType.tp_free = PyObject_Del;
     PyModule_AddObject(m, "Context", (PyObject*)&PyLorcon2_ContextType);
 
     /* Lorcon2 Multicap Object */
@@ -603,7 +617,7 @@ initPyLorcon2(void)
     PyLorcon2_MultiType.tp_setattro = PyObject_GenericSetAttr;
     PyLorcon2_MultiType.tp_alloc  = PyType_GenericAlloc;
     PyLorcon2_MultiType.tp_new = PyType_GenericNew;
-    PyLorcon2_MultiType.tp_free = _PyObject_Del;
+    PyLorcon2_MultiType.tp_free = PyObject_Del;
     PyModule_AddObject(m, "Multi", (PyObject*)&PyLorcon2_MultiType);
 
     /* Lorcon2 Packet Object */
@@ -612,14 +626,16 @@ initPyLorcon2(void)
     PyLorcon2_PacketType.tp_setattro = PyObject_GenericSetAttr;
     PyLorcon2_PacketType.tp_alloc  = PyType_GenericAlloc;
     PyLorcon2_PacketType.tp_new = PyType_GenericNew;
-    PyLorcon2_PacketType.tp_free = _PyObject_Del;
+    PyLorcon2_PacketType.tp_free = PyObject_Del;
     PyModule_AddObject(m, "Packet", (PyObject*)&PyLorcon2_PacketType);
+
+    return m;
 }
 
 static PyObject*
 PyLorcon2_get_version(PyObject *self, PyObject *args)
 {
-    return PyInt_FromLong(lorcon_get_version());
+    return PyLong_FromLong(lorcon_get_version());
 }
 
 static PyObject*
@@ -643,8 +659,8 @@ PyLorcon2_list_drivers(PyObject *self, PyObject *args)
     while(driver) {
         entry = PyTuple_New(2);
 
-        PyTuple_SetItem(entry, 0, PyString_FromString(driver->name));
-        PyTuple_SetItem(entry, 1, PyString_FromString(driver->details));
+        PyTuple_SetItem(entry, 0, PyUnicode_FromString(driver->name));
+        PyTuple_SetItem(entry, 1, PyUnicode_FromString(driver->details));
 
         PyList_Append(retval, entry);
         Py_DECREF(entry);
@@ -679,8 +695,8 @@ PyLorcon2_find_driver(PyObject *self, PyObject *args)
         return PyErr_NoMemory();
     }
     
-    PyTuple_SetItem(retval, 0, PyString_FromString(driver->name));
-    PyTuple_SetItem(retval, 1, PyString_FromString(driver->details));
+    PyTuple_SetItem(retval, 0, PyUnicode_FromString(driver->name));
+    PyTuple_SetItem(retval, 1, PyUnicode_FromString(driver->details));
 
     lorcon_free_driver_list(driver);
 
@@ -709,8 +725,8 @@ PyLorcon2_auto_driver(PyObject *self, PyObject *args)
         return PyErr_NoMemory();
     }
     
-    PyTuple_SetItem(retval, 0, PyString_FromString(driver->name));
-    PyTuple_SetItem(retval, 1, PyString_FromString(driver->details));
+    PyTuple_SetItem(retval, 0, PyUnicode_FromString(driver->name));
+    PyTuple_SetItem(retval, 1, PyUnicode_FromString(driver->details));
 
     lorcon_free_driver_list(driver);
 
@@ -722,7 +738,7 @@ PyLorcon2_Context_dealloc(PyLorcon2_Context *self)
 {
     if(self->context != NULL && self->free_on_cleanup)
         lorcon_free(self->context);
-    self->ob_type->tp_free((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static int
@@ -830,13 +846,13 @@ PyLorcon2_Context_close(PyLorcon2_Context *self)
 static PyObject*
 PyLorcon2_Context_get_error(PyLorcon2_Context *self)
 {
-    return PyString_FromString(lorcon_get_error(self->context));
+    return PyUnicode_FromString(lorcon_get_error(self->context));
 }
 
 static PyObject*
 PyLorcon2_Context_get_capiface(PyLorcon2_Context *self)
 {
-    return PyString_FromString(lorcon_get_capiface(self->context));
+    return PyUnicode_FromString(lorcon_get_capiface(self->context));
 }
 
 static PyObject*
@@ -854,13 +870,13 @@ PyLorcon2_Context_send_bytes(PyLorcon2_Context *self, PyObject *args, PyObject *
         return NULL;
     }
 
-    pckt_string = PyObject_Str(pckt);
+    pckt_string = PyObject_Bytes(pckt);
     if (!pckt_string) {
         PyErr_SetString(PyExc_ValueError, "Failed to get string-representation from object.");
         return NULL;
     }
 
-    if (PyString_AsStringAndSize(pckt_string, &pckt_buffer, &pckt_size)) {
+    if (PyBytes_AsStringAndSize(pckt_string, &pckt_buffer, &pckt_size)) {
         Py_DECREF(pckt_string);
         return NULL;
     }
@@ -874,7 +890,7 @@ PyLorcon2_Context_send_bytes(PyLorcon2_Context *self, PyObject *args, PyObject *
     
     Py_DECREF(pckt_string);
     
-    return PyInt_FromLong(sent);
+    return PyLong_FromLong(sent);
 }
 
 static PyObject*
@@ -895,7 +911,7 @@ PyLorcon2_Context_set_filter(PyLorcon2_Context *self, PyObject *args, PyObject *
         return NULL;
     }
 
-    if (PyString_AsStringAndSize(filter_string, &filter_buffer, &filter_size)) {
+    if (PyBytes_AsStringAndSize(filter_string, &filter_buffer, &filter_size)) {
         Py_DECREF(filter_string);
         return NULL;
     }
@@ -910,7 +926,7 @@ PyLorcon2_Context_set_filter(PyLorcon2_Context *self, PyObject *args, PyObject *
     
     Py_DECREF(filter_string);
     
-    return PyInt_FromLong(ret);
+    return PyLong_FromLong(ret);
 }
 
 static PyObject*
@@ -931,7 +947,7 @@ PyLorcon2_Context_set_timeout(PyLorcon2_Context *self, PyObject *args, PyObject 
 static PyObject*
 PyLorcon2_Context_get_timeout(PyLorcon2_Context *self)
 {
-    return PyInt_FromLong(lorcon_get_timeout(self->context));
+    return PyLong_FromLong(lorcon_get_timeout(self->context));
 }
 
 static PyObject*
@@ -952,13 +968,13 @@ PyLorcon2_Context_set_vap(PyLorcon2_Context *self, PyObject *args, PyObject *kwd
 static PyObject*
 PyLorcon2_Context_get_vap(PyLorcon2_Context *self)
 {
-    return PyString_FromString(lorcon_get_vap(self->context));
+    return PyUnicode_FromString(lorcon_get_vap(self->context));
 }
 
 static PyObject*
 PyLorcon2_Context_get_driver_name(PyLorcon2_Context *self)
 {
-    return PyString_FromString(lorcon_get_driver_name(self->context));
+    return PyUnicode_FromString(lorcon_get_driver_name(self->context));
 }
 
 static PyObject*
@@ -988,7 +1004,7 @@ PyLorcon2_Context_set_channel(PyLorcon2_Context *self, PyObject *args, PyObject 
             return NULL;
         }
 
-        if (PyString_AsStringAndSize(complexchan_string, &complex_buffer, &complex_size)) {
+        if (PyBytes_AsStringAndSize(complexchan_string, &complex_buffer, &complex_size)) {
             Py_DECREF(complexchan_string);
             return NULL;
         }
@@ -1024,7 +1040,7 @@ PyLorcon2_Context_get_channel(PyLorcon2_Context *self)
         return NULL;
     }
 
-    return PyInt_FromLong(channel);
+    return PyLong_FromLong(channel);
 }
 
 static PyObject*
@@ -1071,7 +1087,7 @@ PyLorcon2_Context_set_hwmac(PyLorcon2_Context *self, PyObject *args, PyObject *k
     }
     
     for (i = 0; i < 6; i++) {
-        mac[i] = (uint8_t)PyInt_AsLong(PyTuple_GetItem(mac_tuple, i));
+        mac[i] = (uint8_t)PyLong_AsLong(PyTuple_GetItem(mac_tuple, i));
         if (mac[i] == -1) {
             PyErr_SetString(PyExc_ValueError, "Tuple-entry is not convertible to integer");
             return NULL;
@@ -1120,7 +1136,7 @@ PyLorcon2_Packet_get_time_sec(PyLorcon2_Packet *self)
         return NULL;
     }
     timesec = self->packet->ts.tv_sec;
-    return PyInt_FromLong(timesec);
+    return PyLong_FromLong(timesec);
 }
 
 static PyObject*
@@ -1132,7 +1148,7 @@ PyLorcon2_Packet_get_time_usec(PyLorcon2_Packet *self)
         return NULL;
     }
     timesec = self->packet->ts.tv_usec;
-    return PyInt_FromLong(timesec);
+    return PyLong_FromLong(timesec);
 }
 
 static PyObject*
@@ -1144,7 +1160,7 @@ PyLorcon2_Packet_get_length(PyLorcon2_Packet *self)
         return NULL;
     }
     length = self->packet->length;
-    return PyInt_FromLong(length);
+    return PyLong_FromLong(length);
 }
 
 static PyObject*
@@ -1156,7 +1172,7 @@ PyLorcon2_Packet_get_dot11_length(PyLorcon2_Packet *self)
         return NULL;
     }
     length = self->packet->length_header;
-    return PyInt_FromLong(length);
+    return PyLong_FromLong(length);
 }
 
 static PyObject*
@@ -1168,7 +1184,7 @@ PyLorcon2_Packet_get_payload_length(PyLorcon2_Packet *self)
         return NULL;
     }
     length = self->packet->length_data;
-    return PyInt_FromLong(length);
+    return PyLong_FromLong(length);
 }
 
 static void
@@ -1177,7 +1193,7 @@ PyLorcon2_Packet_dealloc(PyLorcon2_Packet *self)
     if(self->packet != NULL)
         lorcon_packet_free(self->packet);
 
-    self->ob_type->tp_free((PyObject*)self);
+    Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static int
@@ -1275,7 +1291,7 @@ static void PyLorcon2_Multi_dealloc(PyLorcon2_Multi *self) {
     if (self->error_cb_func != NULL)
         Py_XDECREF(self->error_cb_func);
 
-    self->ob_type->tp_free(self);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject* PyLorcon2_Multi_get_error(PyLorcon2_Multi *self) {
@@ -1284,7 +1300,7 @@ static PyObject* PyLorcon2_Multi_get_error(PyLorcon2_Multi *self) {
         return NULL;
     }
 
-    return PyString_FromString(lorcon_multi_get_error(self->multi));
+    return PyUnicode_FromString(lorcon_multi_get_error(self->multi));
 }
 
 void pylorcon2_multi_error_handler(lorcon_multi_t *ctx, lorcon_t *lorcon_interface,
@@ -1389,7 +1405,7 @@ static PyObject* PyLorcon2_Multi_get_interfaces(PyLorcon2_Multi *self) {
 
     while ((interface = lorcon_multi_get_next_interface(self->multi, interface))) {
         lorcon = lorcon_multi_interface_get_lorcon(interface);
-        stringobj = PyString_FromString(lorcon_get_capiface(lorcon));
+        stringobj = PyUnicode_FromString(lorcon_get_capiface(lorcon));
         PyList_Append(retlist, stringobj);
         Py_DECREF(stringobj);
     }
@@ -1447,7 +1463,7 @@ static PyObject* PyLorcon2_Multi_loop(PyLorcon2_Multi *self, PyObject *args) {
 
     ret = lorcon_multi_loop(self->multi, num, pylorcon2_multi_handler, (void *) self);
 
-    return PyInt_FromLong(ret);
+    return PyLong_FromLong(ret);
 }
 
 static PyObject* PyLorcon2_Multi_get_multi_ptr(PyLorcon2_Multi *self) {
@@ -1507,4 +1523,3 @@ static PyObject *PyLorcon2_Multi_remove_interface_error_cb(PyLorcon2_Multi *self
     Py_INCREF(Py_None);
     return Py_None;
 }
-
