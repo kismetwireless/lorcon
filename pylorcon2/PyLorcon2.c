@@ -22,10 +22,10 @@
 */
 
 
-#include <python3.6/Python.h>
-#include <lorcon2/lorcon.h>
-#include <lorcon2/lorcon_packet.h>
-#include <lorcon2/lorcon_multi.h>
+#include <Python.h>
+#include "../lorcon.h"
+#include "../lorcon_packet.h"
+#include "../lorcon_multi.h"
 #include "PyLorcon2.h"
 
 

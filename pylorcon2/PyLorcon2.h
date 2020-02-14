@@ -21,9 +21,9 @@
     Author: Ezequiel Gutesman (gutes)  <egutesman@gmail.com>
 */
 
-#include <python3.6/Python.h>
-#include <lorcon2/lorcon.h>
-#include <lorcon2/lorcon_multi.h>
+#include <Python.h>
+#include "../lorcon.h"
+#include "../lorcon_multi.h"
 
 #ifndef __PYLORCON2__
 #define __PYLORCON2__

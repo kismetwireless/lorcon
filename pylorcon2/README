@@ -16,12 +16,12 @@ Requirements
 PyLorcon2 compiles and runs on Linux. Other OSes may be supported by Lorcon2
 but are currently untested.
 
-Python >= 2.5 and Lorcon2 are required to build PyLorcon2:
+Python >= 3.6 and Lorcon2 are required to build PyLorcon2:
 
-  * Python >=2.5 and it's headers
+  * Python >=3.6 and it's headers
     http://www.python.org
   * Lorcon2 and it's headers
-    http://802.11ninja.net/lorcon/
+    https://github.com/kismetwireless/lorcon
 
 Linux users running a binary distribution may need to install the development
 packages for Python (e.g. python-devel). You also need a C-compiler like gcc.
