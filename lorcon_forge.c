@@ -170,11 +170,12 @@ void lcpf_80211headers(struct lcpa_metapack *pack, unsigned int type,
 		pack = lcpa_append_copy(pack, "80211MAC2", 6, mac2);
 	if (mac3 != NULL)
 		pack = lcpa_append_copy(pack, "80211MAC3", 6, mac3);
-	if (mac4 != NULL)
-		pack = lcpa_append_copy(pack, "80211MAC4", 6, mac4);
-
+	
 	*sixptr = ((sequence << 4) | fragment);
 	pack = lcpa_append_copy(pack, "80211FRAGSEQ", 2, chunk);
+	
+	if (mac4 != NULL)
+		pack = lcpa_append_copy(pack, "80211MAC4", 6, mac4);
 }
 
 void lcpf_beacon(struct lcpa_metapack *pack, uint8_t *src, uint8_t *bssid, 
