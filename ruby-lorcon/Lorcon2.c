@@ -1,10 +1,6 @@
 #include "Lorcon2.h"
 #include "ruby.h"
 
-#ifndef RUBY_19
-#include "rubysig.h"
-#endif
-
 /*
 	self.license = GPLv2;
 */
