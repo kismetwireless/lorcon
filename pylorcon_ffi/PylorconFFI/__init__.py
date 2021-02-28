@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-
 """
 PyLorcon FFI
 
@@ -8,7 +6,7 @@ layer, which should greatly simplify the translation
 between C and Python.
 """
 
-from _pylorcon_ffi import ffi
+from ._pylorcon_ffi import ffi
 from ctypes import util as ctypesutil
 
 class LorconError(Exception):
@@ -32,8 +30,8 @@ class LorconFFI_Driver:
             raise RuntimeError("driver record null")
 
         self.driver = driver
-        self.name = ffi.string(driver.name)
-        self.details = ffi.string(driver.details)
+        self.name = ffi.string(driver.name).decode('utf-8')
+        self.details = ffi.string(driver.details).decode('utf-8')
 
     def __str__(self):
         return "LorconDriver [{},{}]".format(self.name, self.details)
@@ -129,7 +127,7 @@ class LorconFFI:
         if self.context == ffi.NULL:
             raise LorconError("not connected to lorcon context")
 
-        return ffi.string(self.lib.lorcon_get_error(self.context))
+        return ffi.string(self.lib.lorcon_get_error(self.context)).decode('utf-8')
 
     def find_driver(self, interface):
         """
@@ -141,7 +139,7 @@ class LorconFFI:
 
         :throws LorconDriverNotFoundError: Unable to find a Lorcon driver
         """
-        d = self.lib.lorcon_auto_driver(interface)
+        d = self.lib.lorcon_auto_driver(bytes(interface, 'utf-8'))
         if d == ffi.NULL:
             raise LorconDriverNotFoundError("Could not find driver for interface {}".format(interface))
         return d
@@ -184,7 +182,7 @@ class LorconFFI:
         else:
             self.driver = driver
 
-        self.context = self.lib.lorcon_create(self.interface, self.driver)
+        self.context = self.lib.lorcon_create(bytes(self.interface, 'utf-8'), bytes(self.driver, 'utf-8'))
 
         if self.context == ffi.NULL:
             raise LorconError("Could not connect Lorcon to {}, {}".format(interface, driver))
@@ -206,7 +204,7 @@ class LorconFFI:
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
-        self.lib.lorcon_set_vap(self.context, vif)
+        self.lib.lorcon_set_vap(self.context, bytes(vif, 'utf-8'))
 
     def get_vif(self):
         """
@@ -219,7 +217,7 @@ class LorconFFI:
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
-        return ffi.string(self.lib.lorcon_get_vap(self.context))
+        return ffi.string(self.lib.lorcon_get_vap(self.context)).decode('utf-8')
 
     def get_capiface(self):
         """
@@ -233,7 +231,7 @@ class LorconFFI:
         if self.context == ffi.NULL:
             raise LorconError("No open lorcon context")
 
-        return ffi.string(self.lib.lorcon_get_capiface(self.context))
+        return ffi.string(self.lib.lorcon_get_capiface(self.context)).deode('utf-8')
 
     def open_inject(self, interface = None, driver = ffi.NULL):
         """
@@ -292,7 +290,7 @@ class LorconFFI:
         else:
             raise LorconError("Expected int or str for channel")
 
-        self.lib.lorcon_parse_ht_channel(ch, compchan)
+        self.lib.lorcon_parse_ht_channel(bytes(ch, 'utf-8'), compchan)
 
         if compchan == ffi.NULL:
             raise LorconChannelError("Invalid channel {}: {}".format(channel, self.error()))
@@ -316,45 +314,4 @@ class LorconFFI:
 
         if self.lib.lorcon_send_bytes(self.context, len(data), data) < 0:
             raise LorconTransmitError("Could not tx {} bytes on {}: {}".format(len(data), self.interface, self.error()))
-
-if __name__ == "__main__":
-    py = LorconFFI()
-    print "Lorcon version", py.version()
-
-    drivers = py.list_drivers()
-    for d in drivers:
-        print d
-
-    print "Auto-driver for wlx4494fcf30eb3",
-    driver = py.find_driver("wlx4494fcf30eb3")
-    print LorconFFI_Driver(driver)
-
-    print "Testing channel parsing"
-    print LorconFFI_Channel(py.parse_channel("6"))
-    print LorconFFI_Channel(py.parse_channel("6W5"))
-    print LorconFFI_Channel(py.parse_channel("5260HT40+"))
-    print LorconFFI_Channel(py.parse_channel(10))
-
-
-    print "Connecting to wlx4494fcf30eb3"
-    py.connect("wlx4494fcf30eb3")
-    print "Setting vif to mon0"
-    py.set_vif("mon0")
-
-    print "Opening for inject+monitor"
-    py.open_injmon()
-    print "OK"
-
-    print "Bringing interface up"
-    py.ifup();
-    print "OK"
-
-    print "Setting channel 1"
-    py.set_channel("1")
-    print "OK"
-
-    print "Injecting"
-    packet = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-    while True:
-        py.inject(packet)
 
