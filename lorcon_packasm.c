@@ -175,25 +175,19 @@ void lcpa_replace(struct lcpa_metapack *in_pack, const char *in_type,
 }
 
 void lcpa_free(struct lcpa_metapack *in_head) {
-	struct lcpa_metapack *i, *j;
+	struct lcpa_metapack *cur, *next;
 
 	/* Seek to the beginning of the list */
-	for (i = in_head; i->prev != NULL; i = i->prev)
+	for (cur = in_head; cur->prev != NULL; cur = cur->prev)
 		;
 
-	j = NULL;
-	for (i = i; i != NULL; i = i->next) {
-		if (j == NULL) {
-			j = i;
-			continue;
-		}
+	for (; cur != NULL; cur = next) {
+		next = cur->next;
 
-		if (j->freedata)
-			free(j->data);
+		if (cur->freedata)
+			free(cur->data);
 
-		free(j);
-
-		j = i;
+		free(cur);
 	}
 }
 
