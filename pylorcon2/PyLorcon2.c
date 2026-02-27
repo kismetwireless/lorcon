@@ -1325,7 +1325,7 @@ void pylorcon2_multi_error_handler(lorcon_multi_t *ctx, lorcon_t *lorcon_interfa
 
     /* Call the error cb function */
     cb_arg = Py_BuildValue("(O)", lorcon_obj);
-    pyresult = PyEval_CallObject(multi->error_cb_func, cb_arg);
+    pyresult = PyObject_Call(multi->error_cb_func, cb_arg, NULL);
     Py_DECREF(cb_arg);
 
     if (pyresult == NULL) {
@@ -1425,7 +1425,7 @@ void pylorcon2_multi_handler(lorcon_t *ctx, lorcon_packet_t *pkt, u_char *aux) {
     Py_DECREF(packet_tuple_arg);
 
     cb_arg = Py_BuildValue("(O)", pypacket);
-    pyresult = PyEval_CallObject(multi->cb_func, cb_arg);
+    pyresult = PyObject_Call(multi->cb_func, cb_arg, NULL);
     Py_DECREF(cb_arg);
 
     if (pyresult == NULL) {
